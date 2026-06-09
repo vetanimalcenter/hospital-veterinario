@@ -239,7 +239,7 @@ select.fi{cursor:pointer}
       <div class="empty"><div class="empty-ico">🏥</div><div class="empty-title">Selecciona un paciente</div><div class="empty-sub">Elige uno del panel izquierdo o crea uno nuevo</div></div>
     </div>
     <div class="mob-nav" id="mobNav" style="display:none">
-      <button class="mob-nav-item on" data-tab="ficha" onclick="mobTab(this)"><span class="ico">📋</span>Ficha</button>
+      
       <button class="mob-nav-item" data-tab="medicamentos" onclick="mobTab(this)"><span class="ico">💊</span>Meds</button>
       <button class="mob-nav-item" data-tab="orden" onclick="mobTab(this)"><span class="ico">✅</span>Orden</button>
       <button class="mob-nav-item" data-tab="monitoreo" onclick="mobTab(this)"><span class="ico">📊</span>Monitor</button>
@@ -285,7 +285,7 @@ select.fi{cursor:pointer}
       <div class="ib ib-teal" style="justify-content:space-between">
         <span id="vsConnBadge">🔗 Configura Vetesoft para buscar pacientes</span>
         <div style="position:relative;flex:1;min-width:180px;max-width:260px">
-          <input class="fi" id="vs-search" placeholder="Buscar por nombre…" oninput="searchVsPatient(this.value)" autocomplete="off">
+          <input class="fi" id="vs-search" placeholder="Nombre mascota, dueño o cédula…" oninput="searchVsPatient(this.value)" autocomplete="off" style="font-size:13px">
           <span id="vs-spin" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);display:none"><span class="spin"></span></span>
           <div id="vs-results" class="search-results" style="display:none"></div>
         </div>
@@ -306,6 +306,10 @@ select.fi{cursor:pointer}
       <div class="frow">
         <div class="field"><div class="fl">Peso (kg)</div><input class="fi" id="nw-weight" type="number" step="0.1" placeholder="0.0"></div>
         <div class="field"><div class="fl">Edad</div><input class="fi" id="nw-age" placeholder="Ej: 2 años"></div>
+      </div>
+      <div class="frow">
+        <div class="field"><div class="fl">Documento (cédula dueño)</div><input class="fi" id="nw-doc" placeholder="Número de documento"></div>
+        <div class="field"><div class="fl">Teléfono</div><input class="fi" id="nw-phone" placeholder="Celular"></div>
       </div>
       <div class="field"><div class="fl">ID Vetesoft (id_animal)</div>
         <input class="fi" id="nw-vsid" placeholder="Se completa automático al buscar" style="font-family:'JetBrains Mono',monospace;font-size:12px">
@@ -404,7 +408,7 @@ select.fi{cursor:pointer}
 <script>
 var VS_TOKEN=localStorage.getItem('vs_token')||'';
 var VS_BASE='https://developers.vetesoft.org';
-var vsProducts=[],vsCategories=[],vsPatients=[];
+var vsProducts=[],vsCategories=[],vsPatients=[],vsIndex=[];
 var searchTimer=null;
 var patients=[
   {id:1,name:'GOQUI',owner:'Sandra Milena Acuña',species:'Canino',breed:'Cocker',sex:'Macho',weight:8.6,age:'4 meses',status:'hospitalizado',vet:'Dr. García',vsId:'',admitDate:'2026-04-05',reason:'Lo atropelló una moto, tratamiento de hemotropicos',diagnosis:'Trauma por atropello + hemoparásitos',emoji:'🐕',
@@ -429,7 +433,7 @@ var patients=[
    events:[{time:'05/04/2026 19:00',type:'alert',text:'Anemia severa HTO 22%. Plaquetas 58k. Paciente crítico.',by:'Médico'}],dayRate:35000}
 ];
 var LAB_PARAMS=[{k:'HTO',l:'Hematocrito',u:'%',ref:'37-55'},{k:'HG',l:'Hemoglobina',u:'g/dL',ref:'12-18'},{k:'LEUCO',l:'Leucocitos',u:'x10³/uL',ref:'6-17'},{k:'PLTS',l:'Plaquetas',u:'x10³/uL',ref:'200-500'},{k:'NEU',l:'Neutrófilos',u:'%',ref:'60-77'},{k:'LIN',l:'Linfocitos',u:'%',ref:'12-30'},{k:'MON',l:'Monocitos',u:'%',ref:'3-10'},{k:'ALT',l:'ALT (TGP)',u:'UI/L',ref:'10-100'},{k:'CREAT',l:'Creatinina',u:'mg/dL',ref:'0.5-1.5'},{k:'BUN',l:'BUN/Urea',u:'mg/dL',ref:'7-27'},{k:'ALP',l:'Fosfatasa Alc.',u:'UI/L',ref:'23-212'},{k:'CA',l:'Calcio',u:'mg/dL',ref:'8.5-11.5'},{k:'P',l:'Fósforo',u:'mg/dL',ref:'2.5-6.5'},{k:'ALB',l:'Albúmina',u:'g/dL',ref:'2.3-3.9'},{k:'BIL',l:'Bilirrubina T.',u:'mg/dL',ref:'0-0.9'},{k:'CHOL',l:'Colesterol',u:'mg/dL',ref:'125-270'},{k:'NH3',l:'Amonio',u:'ug/dL',ref:'0-100'},{k:'PT',l:'Prot. Total',u:'g/dL',ref:'5.5-7.8'},{k:'PTT',l:'PTT',u:'seg',ref:'60-90'},{k:'GGT',l:'GGT',u:'UI/L',ref:'0-11'}];
-var curId=null,curTab='ficha',filterSt='all',orderChecks={},monSel={};
+var curId=null,curTab='medicamentos',filterSt='all',orderChecks={},monSel={};
 
 /* ── VETESOFT API ── */
 function vsH(){return{'Auth-Token':VS_TOKEN,'Content-Type':'application/json'};}
@@ -456,61 +460,100 @@ function saveConfig(){
 }
 function loadVetesoftCatalog(){
   if(!VS_TOKEN) return;
-  vsGet('/datosBasicos/').then(function(d){if(!d)return;vsPatients=Array.isArray(d)?d:(d.results||d.data||[]);var e=document.getElementById('stat-patients');if(e)e.textContent=vsPatients.length;updateConnBadge();});
-  vsGet('/products/').then(function(d){if(!d)return;vsProducts=Array.isArray(d)?d:(d.results||d.data||[]);var e=document.getElementById('stat-products');if(e)e.textContent=vsProducts.length;});
-  vsGet('/products/categories').then(function(d){if(!d)return;vsCategories=Array.isArray(d)?d:(d.results||d.data||[]);var e=document.getElementById('stat-cats');if(e)e.textContent=vsCategories.length;});
+  var e=document.getElementById('stat-patients');
+  if(e) e.textContent='…';
+  // Carga todos los pacientes de una vez — 43k registros, se filtra local
+  vsGet('/datosBasicos/').then(function(d){
+    if(!d)return;
+    vsPatients=Array.isArray(d)?d:(d.results||d.data||[]);
+    var el=document.getElementById('stat-patients');if(el)el.textContent=vsPatients.length;
+    // Construir índice de búsqueda una sola vez
+    vsIndex=vsPatients.map(function(p,i){
+      return {
+        i:i,
+        s:((p.paciente||'')+'|'+(p.propietario||'')+'|'+(p.documento||'')).toLowerCase()
+      };
+    });
+    updateConnBadge();
+  });
+  vsGet('/products/').then(function(d){if(!d)return;vsProducts=Array.isArray(d)?d:(d.results||d.data||[]);var el=document.getElementById('stat-products');if(el)el.textContent=vsProducts.length;});
+  vsGet('/products/categories').then(function(d){if(!d)return;vsCategories=Array.isArray(d)?d:(d.results||d.data||[]);var el=document.getElementById('stat-cats');if(el)el.textContent=vsCategories.length;});
 }
 function updateConnBadge(){
   var e=document.getElementById('vsConnBadge');if(!e)return;
-  if(VS_TOKEN&&vsPatients.length>0) e.textContent='🟢 Vetesoft · '+vsPatients.length+' pacientes';
-  else if(VS_TOKEN) e.textContent='🟡 Conectado, cargando…';
+  if(VS_TOKEN&&vsPatients.length>0) e.innerHTML='🟢 <strong>'+vsPatients.length.toLocaleString()+'</strong> pacientes cargados — busca por nombre, dueño o cédula';
+  else if(VS_TOKEN) e.innerHTML='🟡 Cargando pacientes…';
   else e.textContent='🔗 Configura Vetesoft para buscar pacientes';
 }
 function searchVsPatient(q){
   clearTimeout(searchTimer);
-  var res=document.getElementById('vs-results'),sp=document.getElementById('vs-spin');
+  var res=document.getElementById('vs-results');
   if(!q||q.length<2){res.style.display='none';return;}
-  sp.style.display='block';
+  if(!vsPatients.length){
+    res.innerHTML='<div class="search-item"><div class="search-item-sub" style="color:var(--amber)">⏳ Catálogo cargando, espera un momento…</div></div>';
+    res.style.display='block';return;
+  }
   searchTimer=setTimeout(function(){
-    var ql=q.toLowerCase();
-    var local=vsPatients.filter(function(p){
-      return ((p.nombre||p.name||p.Nombre||'')+(p.propietario||p.owner||p.dueno||p.cliente||'')).toLowerCase().includes(ql);
-    }).slice(0,8);
-    if(local.length){showPatRes(local,res);sp.style.display='none';return;}
-    if(VS_TOKEN){
-      vsGet('/datosBasicos/?nombre='+encodeURIComponent(q)).then(function(d){
-        sp.style.display='none';
-        var items=d?(Array.isArray(d)?d:(d.results||d.data||[])):[];
-        if(items.length) showPatRes(items,res);
-        else{res.innerHTML='<div class="search-item"><div class="search-item-sub">Sin resultados en Vetesoft</div></div>';res.style.display='block';}
-      });
-    } else {sp.style.display='none';}
-  },350);
-}
-function showPatRes(items,res){
-  res.innerHTML=items.map(function(p){
-    var name=p.nombre||p.name||p.Nombre||'Sin nombre';
-    var owner=p.propietario||p.owner||p.dueno||p.cliente||'';
-    var sp=p.especie||p.species||'';var id=p.id||p.id_animal||p.ID||'';
-    var ico=sp.toLowerCase().includes('can')?'🐕':sp.toLowerCase().includes('fel')?'🐱':'🐾';
-    return '<div class="search-item" onclick="fillPatFromVs('+JSON.stringify(JSON.stringify(p))+')">'+
-      '<span style="font-size:20px">'+ico+'</span><div><div class="search-item-name">'+name+'</div>'+
-      '<div class="search-item-sub">'+owner+(sp?' · '+sp:'')+(id?' · ID:'+id:'')+'</div></div></div>';
-  }).join('');res.style.display='block';
+    var ql=q.toLowerCase().trim();
+    var hits=[];
+    for(var i=0;i<vsIndex.length&&hits.length<10;i++){
+      if(vsIndex[i].s.includes(ql)) hits.push(vsPatients[vsIndex[i].i]);
+    }
+    if(!hits.length){
+      res.innerHTML='<div class="search-item"><div class="search-item-sub">Sin resultados para "'+q+'"</div></div>';
+      res.style.display='block';return;
+    }
+    res.innerHTML=hits.map(function(p){
+      var name=p.paciente||'Sin nombre';
+      var owner=p.propietario||'';
+      var doc=p.documento||'';
+      var sp=p.especie||'';
+      var ico=sp==='CANINO'?'🐕':sp==='FELINO'?'🐱':sp==='AVE'?'🦜':'🐾';
+      var nacido=p.nacido?new Date(p.nacido).getFullYear():'';
+      return '<div class="search-item" onclick="fillPatFromVs('+JSON.stringify(JSON.stringify(p))+')">'+
+        '<span style="font-size:22px;flex-shrink:0">'+ico+'</span>'+
+        '<div style="min-width:0"><div class="search-item-name">'+name+(nacido?' <span style="font-size:10px;color:var(--dim)">('+nacido+')</span>':'')+'</div>'+
+        '<div class="search-item-sub">'+
+          (owner?'<span style="color:var(--text)">'+owner+'</span>':'<span style="color:var(--dim)">Sin dueño</span>')+
+          (doc?' · <span style="font-family:monospace">'+doc+'</span>':'')+
+          (sp?' · '+sp.charAt(0)+sp.slice(1).toLowerCase():'')+
+          (p.raza?' · '+p.raza:'')+
+        '</div></div></div>';
+    }).join('');
+    res.style.display='block';
+  },180);
 }
 function fillPatFromVs(js){
   var p=JSON.parse(js);
-  var set=function(id,val){var e=document.getElementById(id);if(e&&val)e.value=val;};
-  set('nw-name',(p.nombre||p.name||p.Nombre||'').toUpperCase());
-  set('nw-owner',p.propietario||p.owner||p.dueno||p.cliente||'');
-  set('nw-breed',p.raza||p.breed||'');set('nw-weight',p.peso||p.weight||'');
-  set('nw-age',p.edad||p.age||'');set('nw-vsid',p.id||p.id_animal||p.ID||'');
-  var sp=p.especie||p.species||'';var sel=document.getElementById('nw-species');
-  for(var i=0;i<sel.options.length;i++){if(sel.options[i].text.toLowerCase().includes(sp.toLowerCase().slice(0,3))){sel.selectedIndex=i;break;}}
-  var sx=p.sexo||p.sex||'';var ssel=document.getElementById('nw-sex');
-  for(var j=0;j<ssel.options.length;j++){if(ssel.options[j].text.toLowerCase().includes(sx.toLowerCase().slice(0,3))){ssel.selectedIndex=j;break;}}
-  document.getElementById('vs-results').style.display='none';document.getElementById('vs-search').value='';
-  toast('✅ Datos cargados desde Vetesoft');
+  var set=function(id,val){var e=document.getElementById(id);if(e&&(val||val===0))e.value=val;};
+  set('nw-name',(p.paciente||'').toUpperCase());
+  set('nw-owner',p.propietario||'');
+  set('nw-breed',p.raza||'');
+  set('nw-vsid',p.id_animal||'');
+  set('nw-doc',p.documento||'');
+  set('nw-phone',p.telefono||p.phoneValid||'');
+  // Calcular edad desde nacido
+  if(p.nacido){
+    var born=new Date(p.nacido);var now=new Date();
+    var yrs=now.getFullYear()-born.getFullYear();
+    var mos=now.getMonth()-born.getMonth();
+    if(mos<0){yrs--;mos+=12;}
+    set('nw-age', yrs>0 ? yrs+' año'+(yrs>1?'s':'') : mos+' meses');
+  }
+  // Especie
+  var sp=(p.especie||'').toUpperCase();
+  var sel=document.getElementById('nw-species');
+  for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===sp||sel.options[i].text.toUpperCase()===sp){sel.selectedIndex=i;break;}}
+  // Sexo
+  var sx=(p.sexo||'').toLowerCase();
+  var ssel=document.getElementById('nw-sex');
+  for(var j=0;j<ssel.options.length;j++){if(ssel.options[j].text.toLowerCase().includes(sx.slice(0,3))){ssel.selectedIndex=j;break;}}
+  document.getElementById('vs-results').style.display='none';
+  document.getElementById('vs-search').value='';
+  // Mostrar banner con datos cargados
+  var badge=document.getElementById('vsConnBadge');
+  if(badge) badge.innerHTML='✅ <strong>'+(p.paciente||'Paciente')+'</strong> cargado desde Vetesoft · ID: '+(p.id_animal||'?');
+  toast('✅ '+(p.paciente||'Paciente')+' · '+(p.propietario||'') );
 }
 function searchVsProduct(q){
   clearTimeout(searchTimer);
@@ -602,23 +645,46 @@ function renderDetail(){
   document.getElementById('mobTitle').textContent=p.name;
   document.getElementById('mobTop').style.display='flex';document.getElementById('mobNav').style.display='flex';
   var dh=document.getElementById('detailHead');dh.style.display='flex';
-  dh.innerHTML='<div class="detail-head">'+
-    '<div class="pat-avatar">'+p.emoji+'</div>'+
-    '<div class="pat-info">'+
-      '<div class="pat-title">'+p.name+(p.vsId?' <span style="font-size:10px;padding:2px 6px;background:var(--teald);color:var(--teal);border-radius:4px;font-weight:700">VS:'+p.vsId+'</span>':'')+
-      ' <span style="font-weight:400;color:var(--muted);font-size:13px">'+p.owner+'</span></div>'+
-      '<div class="pat-sub">'+p.species+' · '+p.breed+' · '+p.weight+'kg · '+p.age+'</div>'+
-      '<div class="pat-chips"><span class="chip hi">'+p.vet+'</span><span class="chip">'+p.admitDate+'</span><span class="chip">'+d+'d</span>'+(p.dischargeDate?'<span class="chip">Alta: '+p.dischargeDate+'</span>':'')+'</div>'+
+  // ── Botones de acción según estado
+  var actBtns=(p.vsId?'<button class="btn btn-g btn-sm" onclick="loadClinicalHistory(\''+p.vsId+'\')">📁 VS</button>':'<button class="btn btn-g btn-sm" style="opacity:.4" title="Sin ID Vetesoft">📁 VS</button>')+
+    (p.status==='hospitalizado'?'<button class="btn btn-g btn-sm" onclick="dischargePatient()">✓ Alta</button><button class="btn btn-r btn-sm" onclick="deceasedPatient()">✝</button>':'');
+  dh.innerHTML='<div class="detail-head" style="align-items:flex-start;gap:12px;padding:12px 16px">'+
+    '<div class="pat-avatar" style="width:44px;height:44px;font-size:22px;flex-shrink:0;margin-top:2px">'+p.emoji+'</div>'+
+    '<div style="flex:1;min-width:0">'+
+      // Row 1: name + owner + status dot
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+        '<span style="font-size:16px;font-weight:700;letter-spacing:-.3px">'+p.name+'</span>'+
+        (p.vsId?'<span style="font-size:10px;padding:2px 6px;background:var(--teald);color:var(--teal);border-radius:4px;font-weight:700">VS:'+p.vsId+'</span>':'')+
+        '<div class="sdot '+p.status+'" style="margin-left:2px"></div>'+
+        '<span style="font-size:12px;font-weight:600;color:'+(p.status==='hospitalizado'?'var(--blue)':p.status==='alta'?'var(--teal)':'var(--red)')+'">'+
+          (p.status==='hospitalizado'?'Hospitalizado':p.status==='alta'?'Alta':'Fallecido')+'</span>'+
+        '<span style="font-size:12px;color:var(--muted);margin-left:4px">'+p.owner+'</span>'+
+        (p.doc?'<span style="font-size:11px;color:var(--dim);font-family:monospace">CC:'+p.doc+'</span>':'')+
+        (p.phone?'<span style="font-size:11px;color:var(--dim)">📱'+p.phone+'</span>':'')+
+      '</div>'+
+      // Row 2: animal data chips
+      '<div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">'+
+        '<span class="chip">'+p.species+'</span>'+
+        (p.breed?'<span class="chip">'+p.breed+'</span>':'')+
+        (p.sex?'<span class="chip">'+p.sex+'</span>':'')+
+        (p.weight?'<span class="chip">⚖️ '+p.weight+'kg</span>':'')+
+        (p.age?'<span class="chip">'+p.age+'</span>':'')+
+        '<span class="chip hi">'+p.vet+'</span>'+
+        '<span class="chip">📅 '+p.admitDate+'</span>'+
+        '<span class="chip">'+d+'d hospitaliz.</span>'+
+        (p.dischargeDate?'<span class="chip" style="color:var(--teal)">Alta: '+p.dischargeDate+'</span>':'')+
+        (p.diagnosis?'<span class="chip" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.diagnosis+'">Dx: '+p.diagnosis+'</span>':'')+
+      '</div>'+
     '</div>'+
-    '<div class="status-row"><div class="sdot '+p.status+'"></div><span style="font-size:12px;font-weight:600">'+(p.status==='hospitalizado'?'Hospitalizado':p.status==='alta'?'Alta':'Fallecido')+'</span></div>'+
+    '<div style="display:flex;gap:5px;flex-shrink:0;align-items:flex-start">'+actBtns+'</div>'+
     '</div>';
-  var TABS=[{id:'ficha',l:'📋 Ficha'},{id:'medicamentos',l:'💊 Medicamentos'},{id:'orden',l:'✅ Orden'},{id:'monitoreo',l:'📊 Monitoreo'},{id:'labs',l:'🔬 Exámenes'},{id:'eventos',l:'⚡ Novedades'},{id:'factura',l:'💰 Facturación'}];
+  var TABS=[{id:'medicamentos',l:'💊 Medicamentos'},{id:'orden',l:'✅ Orden'},{id:'monitoreo',l:'📊 Monitoreo'},{id:'labs',l:'🔬 Exámenes'},{id:'eventos',l:'⚡ Novedades'},{id:'factura',l:'💰 Facturación'}];
   document.getElementById('tabsBar').innerHTML=TABS.map(function(t){return '<div class="tab'+(curTab===t.id?' on':'')+'" onclick="switchTab(\''+t.id+'\')">'+t.l+'</div>';}).join('');
   renderTabContent();
 }
 function switchTab(tab){
   curTab=tab;
-  var MAP={ficha:'Ficha',medicamentos:'Medicamentos',orden:'Orden',monitoreo:'Monitoreo',labs:'Exámenes',eventos:'Novedades',factura:'Facturación'};
+  var MAP={medicamentos:'Medicamentos',orden:'Orden',monitoreo:'Monitoreo',labs:'Exámenes',eventos:'Novedades',factura:'Facturación'};
   document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('on',t.textContent.includes(MAP[tab]));});
   document.querySelectorAll('.mob-nav-item').forEach(function(b){b.classList.toggle('on',b.dataset.tab===tab);});
   renderTabContent();
@@ -626,7 +692,7 @@ function switchTab(tab){
 function mobTab(btn){document.querySelectorAll('.mob-nav-item').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');curTab=btn.dataset.tab;switchTab(curTab);}
 function renderTabContent(){
   var p=gp();if(!p)return;var c=document.getElementById('mainContent'),ha=document.getElementById('hdrActions');ha.style.display='flex';
-  ({ficha:function(){rFicha(p,c,ha);},medicamentos:function(){rMeds(p,c,ha);},orden:function(){rOrden(p,c,ha);},
+  ({medicamentos:function(){rMeds(p,c,ha);},orden:function(){rOrden(p,c,ha);},
    monitoreo:function(){rMon(p,c,ha);},labs:function(){rLabs(p,c,ha);},eventos:function(){rEvents(p,c,ha);},factura:function(){rFactura(p,c,ha);}})[curTab]();
 }
 
@@ -841,11 +907,13 @@ function saveNewPatient(){
   if(!name||!owner){toast('Nombre y propietario requeridos');return;}
   var sp=document.getElementById('nw-species').value;
   var emojis={Canino:'🐕',Felino:'🐱',Ave:'🦜',Exótico:'🦎'};
+  var docEl=document.getElementById('nw-doc');var phEl=document.getElementById('nw-phone');
   patients.unshift({id:Date.now(),name:name.toUpperCase(),owner:owner,species:sp,
     breed:document.getElementById('nw-breed').value,sex:document.getElementById('nw-sex').value,
     weight:parseFloat(document.getElementById('nw-weight').value)||0,
     age:document.getElementById('nw-age').value,status:'hospitalizado',
     vet:document.getElementById('nw-vet').value,vsId:document.getElementById('nw-vsid').value.trim(),
+    doc:docEl?docEl.value.trim():'',phone:phEl?phEl.value.trim():'',
     admitDate:new Date().toISOString().split('T')[0],
     reason:document.getElementById('nw-reason').value,diagnosis:document.getElementById('nw-diagnosis').value,
     emoji:emojis[sp]||'🐾',medications:[],admins:{},monitoring:[],labs:{},labDates:[],events:[],
