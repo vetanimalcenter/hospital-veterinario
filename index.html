@@ -270,7 +270,7 @@ select.fi{cursor:pointer}
           <span class="chip">Productos: <strong id="stat-products">—</strong></span>
           <span class="chip">Categorías: <strong id="stat-cats">—</strong></span>
         </div>
-        <button class="btn btn-g btn-sm" style="margin-top:10px" onclick="loadVetesoftCatalog()">🔄 Recargar catálogo</button>
+        <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-g btn-sm" onclick="loadVetesoftCatalog()">🔄 Recargar</button><button class="btn btn-r btn-sm" onclick="localStorage.removeItem('vs_patients_cache');localStorage.removeItem('vs_patients_cache_time');toast('Cache borrado — recarga el catálogo')">🗑 Borrar cache</button></div>
       </div>
     </div>
     <div class="modal-ft"><button class="btn btn-g" onclick="closeModal('modalConfig')">Cerrar</button><button class="btn btn-p" onclick="saveConfig()">Guardar</button></div>
@@ -460,47 +460,78 @@ function saveConfig(){
 }
 function loadVetesoftCatalog(){
   if(!VS_TOKEN) return;
-  var e=document.getElementById('stat-patients');
-  if(e) e.textContent='…';
-  // Carga todos los pacientes de una vez — 43k registros, se filtra local
-  vsGet('/datosBasicos/').then(function(d){
-    if(!d)return;
-    vsPatients=Array.isArray(d)?d:(d.results||d.data||[]);
-    var el=document.getElementById('stat-patients');if(el)el.textContent=vsPatients.length;
-    // Construir índice de búsqueda una sola vez
-    vsIndex=vsPatients.map(function(p,i){
-      return {
-        i:i,
-        s:((p.paciente||'')+'|'+(p.propietario||'')+'|'+(p.documento||'')).toLowerCase()
-      };
-    });
-    updateConnBadge();
-  });
+  // Cargar productos y categorías (livianos)
   vsGet('/products/').then(function(d){if(!d)return;vsProducts=Array.isArray(d)?d:(d.results||d.data||[]);var el=document.getElementById('stat-products');if(el)el.textContent=vsProducts.length;});
   vsGet('/products/categories').then(function(d){if(!d)return;vsCategories=Array.isArray(d)?d:(d.results||d.data||[]);var el=document.getElementById('stat-cats');if(el)el.textContent=vsCategories.length;});
+  // Pacientes: intentar desde cache primero
+  var cached=localStorage.getItem('vs_patients_cache');
+  var cachedTime=parseInt(localStorage.getItem('vs_patients_cache_time')||'0');
+  var CACHE_TTL=3600000; // 1 hora
+  if(cached && (Date.now()-cachedTime)<CACHE_TTL){
+    try{
+      vsPatients=JSON.parse(cached);
+      buildVsIndex();
+      updateConnBadge();
+      var el=document.getElementById('stat-patients');if(el)el.textContent=vsPatients.length;
+      console.log('VS pacientes desde cache:',vsPatients.length);
+      return;
+    }catch(e){localStorage.removeItem('vs_patients_cache');}
+  }
+  // Si no hay cache, cargar en background
+  updateConnBadge();
+  console.log('VS cargando pacientes desde API…');
+  fetch(VS_BASE+'/datosBasicos/',{headers:{'Auth-Token':VS_TOKEN}})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      vsPatients=Array.isArray(d)?d:(d.results||d.data||[]);
+      buildVsIndex();
+      // Guardar en cache
+      try{
+        localStorage.setItem('vs_patients_cache',JSON.stringify(vsPatients));
+        localStorage.setItem('vs_patients_cache_time',String(Date.now()));
+      }catch(e){console.warn('Cache no disponible:',e.message);}
+      var el=document.getElementById('stat-patients');if(el)el.textContent=vsPatients.length;
+      updateConnBadge();
+      console.log('VS pacientes cargados:',vsPatients.length);
+    })
+    .catch(function(e){console.error('VS error cargando pacientes:',e);});
+}
+function buildVsIndex(){
+  vsIndex=vsPatients.map(function(p,i){
+    return {i:i,s:((p.paciente||'')+'|'+(p.propietario||'')+'|'+(p.documento||'')).toLowerCase()};
+  });
 }
 function updateConnBadge(){
   var e=document.getElementById('vsConnBadge');if(!e)return;
-  if(VS_TOKEN&&vsPatients.length>0) e.innerHTML='🟢 <strong>'+vsPatients.length.toLocaleString()+'</strong> pacientes cargados — busca por nombre, dueño o cédula';
-  else if(VS_TOKEN) e.innerHTML='🟡 Cargando pacientes…';
-  else e.textContent='🔗 Configura Vetesoft para buscar pacientes';
+  if(VS_TOKEN&&vsPatients.length>0)
+    e.innerHTML='🟢 <strong>'+vsPatients.length.toLocaleString()+'</strong> pacientes listos — busca por nombre, dueño o cédula';
+  else if(VS_TOKEN)
+    e.innerHTML='🟡 Cargando pacientes de Vetesoft… <span class="spin"></span>';
+  else
+    e.textContent='🔗 Configura Vetesoft para buscar pacientes';
 }
 function searchVsPatient(q){
   clearTimeout(searchTimer);
   var res=document.getElementById('vs-results');
   if(!q||q.length<2){res.style.display='none';return;}
+  // Si aún no hay datos, esperar y reintentar
   if(!vsPatients.length){
-    res.innerHTML='<div class="search-item"><div class="search-item-sub" style="color:var(--amber)">⏳ Catálogo cargando, espera un momento…</div></div>';
-    res.style.display='block';return;
+    res.innerHTML='<div class="search-item" style="gap:10px"><span class="spin"></span>'+
+      '<div class="search-item-sub">Cargando pacientes de Vetesoft, espera un momento…</div></div>';
+    res.style.display='block';
+    // Reintentar en 800ms
+    searchTimer=setTimeout(function(){searchVsPatient(q);},800);
+    return;
   }
   searchTimer=setTimeout(function(){
     var ql=q.toLowerCase().trim();
     var hits=[];
-    for(var i=0;i<vsIndex.length&&hits.length<10;i++){
+    for(var i=0;i<vsIndex.length&&hits.length<12;i++){
       if(vsIndex[i].s.includes(ql)) hits.push(vsPatients[vsIndex[i].i]);
     }
     if(!hits.length){
-      res.innerHTML='<div class="search-item"><div class="search-item-sub">Sin resultados para "'+q+'"</div></div>';
+      res.innerHTML='<div class="search-item"><div><div class="search-item-name" style="color:var(--muted)">Sin resultados</div>'+
+        '<div class="search-item-sub">No se encontró "'+q+'" en nombre, dueño ni cédula</div></div></div>';
       res.style.display='block';return;
     }
     res.innerHTML=hits.map(function(p){
@@ -510,18 +541,25 @@ function searchVsPatient(q){
       var sp=p.especie||'';
       var ico=sp==='CANINO'?'🐕':sp==='FELINO'?'🐱':sp==='AVE'?'🦜':'🐾';
       var nacido=p.nacido?new Date(p.nacido).getFullYear():'';
+      // Highlight match
+      var qlEsc=ql.replace(/[.*+?^${}()|]/g,'\\$&');var qlRe=new RegExp('('+qlEsc+')','gi');
+      var hn=name.replace(qlRe,'<mark style="background:rgba(0,201,167,.25);color:var(--teal);border-radius:2px">$1</mark>');
+      var ho=owner.replace(qlRe,'<mark style="background:rgba(0,201,167,.25);color:var(--teal);border-radius:2px">$1</mark>');
+      var hd=doc.replace(qlRe,'<mark style="background:rgba(0,201,167,.25);color:var(--teal);border-radius:2px">$1</mark>');
       return '<div class="search-item" onclick="fillPatFromVs('+JSON.stringify(JSON.stringify(p))+')">'+
         '<span style="font-size:22px;flex-shrink:0">'+ico+'</span>'+
-        '<div style="min-width:0"><div class="search-item-name">'+name+(nacido?' <span style="font-size:10px;color:var(--dim)">('+nacido+')</span>':'')+'</div>'+
-        '<div class="search-item-sub">'+
-          (owner?'<span style="color:var(--text)">'+owner+'</span>':'<span style="color:var(--dim)">Sin dueño</span>')+
-          (doc?' · <span style="font-family:monospace">'+doc+'</span>':'')+
-          (sp?' · '+sp.charAt(0)+sp.slice(1).toLowerCase():'')+
-          (p.raza?' · '+p.raza:'')+
-        '</div></div></div>';
+        '<div style="min-width:0">'+
+          '<div class="search-item-name">'+hn+(nacido?' <span style="font-size:10px;color:var(--dim)">('+nacido+')</span>':'')+'</div>'+
+          '<div class="search-item-sub">'+
+            (owner?ho:'<span style="color:var(--dim)">Sin dueño</span>')+
+            (doc?' · <span style="font-family:monospace">'+hd+'</span>':'')+
+            (sp?' · '+sp.charAt(0)+sp.slice(1).toLowerCase():'')+
+            (p.raza?' · '+p.raza:'')+
+          '</div>'+
+        '</div></div>';
     }).join('');
     res.style.display='block';
-  },180);
+  },150);
 }
 function fillPatFromVs(js){
   var p=JSON.parse(js);
