@@ -534,19 +534,21 @@ function searchVsPatient(q){
         '<div class="search-item-sub">No se encontró "'+q+'" en nombre, dueño ni cédula</div></div></div>';
       res.style.display='block';return;
     }
-    res.innerHTML=hits.map(function(p){
+    // Guardar hits en mapa global para evitar JSON inline en onclick
+    vsHitMap={};
+    res.innerHTML=hits.map(function(p,hi){
+      vsHitMap[hi]=p;
       var name=p.paciente||'Sin nombre';
       var owner=p.propietario||'';
       var doc=p.documento||'';
       var sp=p.especie||'';
       var ico=sp==='CANINO'?'🐕':sp==='FELINO'?'🐱':sp==='AVE'?'🦜':'🐾';
       var nacido=p.nacido?new Date(p.nacido).getFullYear():'';
-      // Highlight match
       var qlEsc=ql.replace(/[.*+?^${}()|]/g,'\\$&');var qlRe=new RegExp('('+qlEsc+')','gi');
       var hn=name.replace(qlRe,'<mark style="background:rgba(0,201,167,.25);color:var(--teal);border-radius:2px">$1</mark>');
       var ho=owner.replace(qlRe,'<mark style="background:rgba(0,201,167,.25);color:var(--teal);border-radius:2px">$1</mark>');
       var hd=doc.replace(qlRe,'<mark style="background:rgba(0,201,167,.25);color:var(--teal);border-radius:2px">$1</mark>');
-      return '<div class="search-item" onclick="fillPatFromVs('+JSON.stringify(JSON.stringify(p))+')">'+
+      return '<div class="search-item" onclick="fillPatFromVs('+hi+')">'+
         '<span style="font-size:22px;flex-shrink:0">'+ico+'</span>'+
         '<div style="min-width:0">'+
           '<div class="search-item-name">'+hn+(nacido?' <span style="font-size:10px;color:var(--dim)">('+nacido+')</span>':'')+'</div>'+
@@ -561,37 +563,44 @@ function searchVsPatient(q){
     res.style.display='block';
   },150);
 }
-function fillPatFromVs(js){
-  var p=JSON.parse(js);
-  var set=function(id,val){var e=document.getElementById(id);if(e&&(val||val===0))e.value=val;};
+var vsHitMap={};
+function fillPatFromVs(idx){
+  var p=vsHitMap[idx];
+  if(!p){toast('⚠️ Error al cargar datos del paciente');return;}
+  var set=function(id,val){var e=document.getElementById(id);if(e&&val!==null&&val!==undefined&&val!=='')e.value=val;};
   set('nw-name',(p.paciente||'').toUpperCase());
   set('nw-owner',p.propietario||'');
   set('nw-breed',p.raza||'');
-  set('nw-vsid',p.id_animal||'');
+  set('nw-vsid',String(p.id_animal||''));
   set('nw-doc',p.documento||'');
-  set('nw-phone',p.telefono||p.phoneValid||'');
+  set('nw-phone',p.telefono||String(p.phoneValid||''));
   // Calcular edad desde nacido
   if(p.nacido){
     var born=new Date(p.nacido);var now=new Date();
     var yrs=now.getFullYear()-born.getFullYear();
     var mos=now.getMonth()-born.getMonth();
     if(mos<0){yrs--;mos+=12;}
-    set('nw-age', yrs>0 ? yrs+' año'+(yrs>1?'s':'') : mos+' meses');
+    set('nw-age', yrs>0 ? yrs+' año'+(yrs>1?'s':'') : mos+' mes'+(mos!==1?'es':''));
   }
-  // Especie
-  var sp=(p.especie||'').toUpperCase();
+  // Especie — el valor en Vetesoft es CANINO / FELINO / AVE etc
+  var sp=(p.especie||'').trim();
+  var spMap={'CANINO':'Canino','FELINO':'Felino','AVE':'Ave','EXOTICO':'Exótico','EXÓTICO':'Exótico'};
   var sel=document.getElementById('nw-species');
-  for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===sp||sel.options[i].text.toUpperCase()===sp){sel.selectedIndex=i;break;}}
-  // Sexo
-  var sx=(p.sexo||'').toLowerCase();
+  var spTarget=spMap[sp]||sp;
+  for(var i=0;i<sel.options.length;i++){
+    if(sel.options[i].text===spTarget||sel.options[i].text.toUpperCase()===sp){sel.selectedIndex=i;break;}
+  }
+  // Sexo — Macho / Hembra
+  var sx=(p.sexo||'').trim();
   var ssel=document.getElementById('nw-sex');
-  for(var j=0;j<ssel.options.length;j++){if(ssel.options[j].text.toLowerCase().includes(sx.slice(0,3))){ssel.selectedIndex=j;break;}}
+  for(var j=0;j<ssel.options.length;j++){
+    if(ssel.options[j].text===sx||ssel.options[j].text.toLowerCase()===sx.toLowerCase()){ssel.selectedIndex=j;break;}
+  }
   document.getElementById('vs-results').style.display='none';
   document.getElementById('vs-search').value='';
-  // Mostrar banner con datos cargados
   var badge=document.getElementById('vsConnBadge');
-  if(badge) badge.innerHTML='✅ <strong>'+(p.paciente||'Paciente')+'</strong> cargado desde Vetesoft · ID: '+(p.id_animal||'?');
-  toast('✅ '+(p.paciente||'Paciente')+' · '+(p.propietario||'') );
+  if(badge) badge.innerHTML='✅ <strong>'+p.paciente+'</strong> · '+p.propietario+(p.documento?' · CC:'+p.documento:'');
+  toast('✅ '+p.paciente+' cargado');
 }
 function searchVsProduct(q){
   clearTimeout(searchTimer);
