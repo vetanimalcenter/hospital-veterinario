@@ -201,6 +201,27 @@ select.fi{cursor:pointer}
 </style>
 </head>
 <body>
+<div id="loginScreen" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;width:100%;max-width:380px;text-align:center">
+    <div style="font-size:40px;margin-bottom:8px">🐾</div>
+    <div style="font-size:20px;font-weight:700;margin-bottom:4px">Animal Center</div>
+    <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:28px">Hospital Veterinario</div>
+    <div class="field" style="text-align:left"><div class="fl">Tipo de usuario</div>
+      <select class="fi" id="login-role" onchange="updateLoginRole()">
+        <option value="medico">Médico / Auxiliar</option>
+        <option value="admin">Administrador</option>
+      </select>
+    </div>
+    <div class="field" style="text-align:left"><div class="fl">Nombre</div>
+      <input class="fi" id="login-name" placeholder="Tu nombre" oninput="updateLoginRole()">
+    </div>
+    <div class="field" id="login-pin-field" style="display:none;text-align:left">
+      <div class="fl">PIN administrador</div>
+      <input class="fi" id="login-pin" type="password" placeholder="••••" maxlength="6">
+    </div>
+    <button class="btn btn-p" style="width:100%;padding:11px;font-size:14px;margin-top:8px" onclick="doLogin()">Ingresar</button>
+  </div>
+</div>
 <div id="sbBackdrop" class="sb-backdrop" onclick="closeSidebar()"></div>
 <div class="app">
   <aside class="sidebar" id="sidebar">
@@ -214,16 +235,20 @@ select.fi{cursor:pointer}
     <div class="sb-filters">
       <div class="filter-label">Estado</div>
       <div class="filter-tabs">
-        <button class="ftab on" onclick="doFilter('all',this)">Todos</button>
-        <button class="ftab" onclick="doFilter('hospitalizado',this)">Activos</button>
+        <button class="ftab on" onclick="doFilter('hospitalizado',this)">Activos</button>
         <button class="ftab" onclick="doFilter('alta',this)">Alta</button>
         <button class="ftab" onclick="doFilter('fallecido',this)">✝</button>
+        <button class="ftab" onclick="doFilter('all',this)">Todos</button>
       </div>
     </div>
     <div class="plist" id="plist"></div>
     <div class="sb-foot">
       <div class="stats-row" id="statsRow"></div>
-      <button class="btn btn-g" style="width:100%;margin-top:8px;font-size:11px" onclick="openModal('modalConfig')">⚙️ Configuración Vetesoft</button>
+      <div id="userBadge" style="font-size:11px;color:var(--muted);padding:5px 2px;display:flex;justify-content:space-between;align-items:center">
+        <span>—</span>
+        <button onclick="logout()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:10px;padding:2px 4px">Salir</button>
+      </div>
+      <button class="btn btn-g" style="width:100%;margin-top:4px;font-size:11px" onclick="openModal('modalConfig')">⚙️ Configuración Vetesoft</button>
     </div>
   </aside>
   <div class="main">
@@ -316,10 +341,18 @@ select.fi{cursor:pointer}
       </div>
       <div class="field"><div class="fl">Motivo de consulta</div><textarea class="fi" id="nw-reason" rows="2" placeholder="Motivo de ingreso..."></textarea></div>
       <div class="field"><div class="fl">Diagnóstico presuntivo</div><textarea class="fi" id="nw-diagnosis" rows="2" placeholder="Diagnóstico inicial..."></textarea></div>
-      <div class="field"><div class="fl">Médico responsable</div>
-        <select class="fi" id="nw-vet"><option>Dr. García</option><option>Dra. Martínez</option><option>Dr. López</option><option>Dra. Rodríguez</option></select>
+      <div class="field"><div class="fl">Médico que recibe</div>
+        <select class="fi" id="nw-vet" id="nw-vet">
+          <option>Wilmer Páez</option>
+          <option>Wilmer Rodríguez</option>
+          <option>Marisol Villamizar</option>
+          <option>Tatiana Rodríguez</option>
+          <option>Angie Valero</option>
+          <option>Estefanía Tenorio</option>
+          <option>Jhoiner</option>
+          <option>Camilo Gil</option>
+        </select>
       </div>
-      <div class="field"><div class="fl">Tarifa hospitalización/día (COP)</div><input class="fi" id="nw-rate" type="number" value="45000"></div>
     </div>
     <div class="modal-ft">
       <button class="btn btn-g" onclick="closeModal('modalNew')">Cancelar</button>
@@ -333,28 +366,46 @@ select.fi{cursor:pointer}
   <div class="modal">
     <div class="modal-hd"><div class="modal-title">Agregar Medicamento</div><button class="mcl" onclick="closeModal('modalMed')">×</button></div>
     <div class="modal-body">
-      <div class="ib ib-blue" style="justify-content:space-between">
-        <span>Buscar en catálogo Vetesoft</span>
-        <div style="position:relative;flex:1;min-width:180px;max-width:260px">
-          <input class="fi" id="med-search" placeholder="Buscar producto…" oninput="searchVsProduct(this.value)" autocomplete="off">
-          <span id="med-spin" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);display:none"><span class="spin"></span></span>
-          <div id="med-results" class="search-results" style="display:none"></div>
-        </div>
+      <!-- Búsqueda catálogo local -->
+      <div style="position:relative;margin-bottom:10px">
+        <input class="fi" id="med-search" placeholder="🔍 Buscar medicamento del catálogo…" oninput="searchMedCatalog(this.value)" autocomplete="off">
+        <div id="med-results" class="search-results" style="display:none"></div>
       </div>
       <div id="med-selected-tag" style="display:none;margin-bottom:10px"></div>
+      <!-- Búsqueda Vetesoft (opcional) -->
+      <div class="ib ib-blue" style="padding:7px 10px;margin-bottom:10px;justify-content:space-between">
+        <span style="font-size:11px">También buscar en inventario Vetesoft</span>
+        <div style="position:relative;flex:1;min-width:160px;max-width:220px">
+          <input class="fi" id="med-search-vs" placeholder="Producto Vetesoft…" oninput="searchVsProduct(this.value)" autocomplete="off" style="font-size:12px;padding:6px 10px">
+          <span id="med-spin" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);display:none"><span class="spin"></span></span>
+          <div id="med-results-vs" class="search-results" style="display:none"></div>
+        </div>
+      </div>
       <div class="field"><div class="fl">Medicamento / Insumo</div><input class="fi" id="med-name" placeholder="Nombre"></div>
       <div class="frow">
-        <div class="field"><div class="fl">Dosis</div><input class="fi" id="med-dose" placeholder="Ej: 0.5MG/KG/12HR"></div>
-        <div class="field"><div class="fl">ML / Cantidad</div><input class="fi" id="med-ml" type="number" step="0.01" placeholder="0.00"></div>
+        <div class="field"><div class="fl">Dosis (referencia)</div><input class="fi" id="med-dose" placeholder="Ej: 0.5MG/KG/12HR"></div>
+        <div class="field">
+          <div class="fl" style="display:flex;justify-content:space-between">
+            <span>ML calculados</span>
+            <span id="med-ml-hint" style="color:var(--teal);font-size:9px"></span>
+          </div>
+          <input class="fi" id="med-ml" type="number" step="0.01" placeholder="0.00">
+        </div>
       </div>
       <div class="frow">
+        <div class="field"><div class="fl">Concentración (mg/ml)</div>
+          <input class="fi" id="med-conc" type="number" step="0.01" placeholder="ej: 50" oninput="calcMedMl()">
+        </div>
         <div class="field"><div class="fl">Vía</div>
           <select class="fi" id="med-via">
             <option value="IV">IV — Intravenosa</option><option value="PO">PO — Oral</option>
             <option value="SC">SC — Subcutánea</option><option value="IM">IM — Intramuscular</option>
             <option value="TOPIC">Tópica</option><option value="OTICA">Ótica</option><option value="OFTAL">Oftálmica</option>
+            <option value="NEB">Nebulización</option>
           </select>
         </div>
+      </div>
+      <div class="frow">
         <div class="field"><div class="fl">Frecuencia</div>
           <select class="fi" id="med-freq">
             <option value="1">Cada 24h (×1/día)</option><option value="2">Cada 12h (×2/día)</option>
@@ -362,10 +413,13 @@ select.fi{cursor:pointer}
             <option value="0">Dosis única</option>
           </select>
         </div>
-      </div>
-      <div class="frow">
         <div class="field"><div class="fl">Precio/dosis (COP)</div><input class="fi" id="med-price" type="number" placeholder="0"></div>
-        <div class="field"><div class="fl">ID Vetesoft</div><input class="fi" id="med-vsid" placeholder="Auto" style="font-family:'JetBrains Mono',monospace;font-size:12px"></div>
+      </div>
+      <div class="field" style="display:none"><input class="fi" id="med-vsid" placeholder="VS ID"></div>
+      <!-- Panel de cálculo -->
+      <div id="med-calc-panel" style="display:none;background:var(--teald);border:1px solid rgba(0,201,167,.3);border-radius:var(--rs);padding:10px 12px;font-size:12px">
+        <div style="font-weight:700;color:var(--teal);margin-bottom:4px">🧮 Cálculo automático</div>
+        <div id="med-calc-detail" style="color:var(--text);line-height:1.7;font-family:'JetBrains Mono',monospace;font-size:11px"></div>
       </div>
     </div>
     <div class="modal-ft">
@@ -410,6 +464,7 @@ var VS_TOKEN=localStorage.getItem('vs_token')||'';
 var VS_BASE='https://developers.vetesoft.org';
 var vsProducts=[],vsCategories=[],vsPatients=[],vsIndex=[];
 var searchTimer=null;
+var MED_CATALOG=[{"n": "Dipirona", "dose": "14MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 14, "conc": 500}, {"n": "Dexametasona", "dose": "0.5MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 0.5, "conc": 4}, {"n": "Hioscina", "dose": "0.5MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 0.5, "conc": 20}, {"n": "Ascorvex", "dose": "25MG/KG/24H", "via": "IV", "freq": 1, "mgkg": 25, "conc": 200}, {"n": "Tramadol", "dose": "2MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 2, "conc": 50}, {"n": "Meloxicam", "dose": "0.1MG/KG/24H", "via": "IV", "freq": 1, "mgkg": 0.1, "conc": 5}, {"n": "Fluimucil", "dose": "15MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 15, "conc": 300}, {"n": "Cerenia", "dose": "0.1ML/KG/DU", "via": "IV", "freq": 0, "mlkg": 0.1}, {"n": "Enrofloxacina", "dose": "5MG/KG/24H", "via": "IV", "freq": 1, "mgkg": 5, "conc": 50}, {"n": "Quercetol", "dose": "20MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 20, "conc": 200}, {"n": "Unitral", "dose": "0.05ML/KG/24H", "via": "SC", "freq": 1, "mlkg": 0.05}, {"n": "Metronidazol", "dose": "10MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 10, "conc": 5}, {"n": "Oxitetraciclina", "dose": "10MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 10, "conc": 50}, {"n": "Omeprazol", "dose": "0.7MG/KG/24H", "via": "IV", "freq": 1, "mgkg": 0.7, "conc": 40}, {"n": "Metoclopramida", "dose": "0.5MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 0.5, "conc": 5}, {"n": "Aminotonic", "dose": "2ML/KG/24H", "via": "IV", "freq": 1, "mlkg": 2}, {"n": "Clindamicina", "dose": "11MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 11, "conc": 150}, {"n": "Alervec", "dose": "2MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 2, "conc": 10}, {"n": "Hemolitan", "dose": "0.1ML/KG/12H", "via": "PO", "freq": 2, "mlkg": 0.1}, {"n": "Engystol", "dose": "0.5ML/KG/12H", "via": "IV", "freq": 2, "mlkg": 0.5}, {"n": "Aciflux", "dose": "1.5MG/KG/12H", "via": "PO", "freq": 2, "mgkg": 1.5, "conc": 30}, {"n": "Ampicilina", "dose": "30MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 30, "conc": 1000}, {"n": "Amp/Sulbactam", "dose": "30MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 30, "conc": 1000}, {"n": "Furosemida", "dose": "1MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 1, "conc": 50}, {"n": "Nebulizaciones", "dose": "CAD 12HR", "via": "NEB", "freq": 2}, {"n": "Meropenem", "dose": "10MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 10, "conc": 500}, {"n": "Keppra", "dose": "20MG/KG/12H", "via": "PO", "freq": 2, "mgkg": 20, "conc": 100}, {"n": "Traumeel", "dose": "0.5ML/KG/12H", "via": "IV", "freq": 2, "mlkg": 0.5}, {"n": "Eritropoyetina", "dose": "50UI/KG/72H", "via": "SC", "freq": 0}, {"n": "Pregabalina 75MG", "dose": "3MG/KG/12H", "via": "PO", "freq": 2, "mgkg": 3}, {"n": "Doxiciclina 50MG", "dose": "5MG/KG/24H", "via": "PO", "freq": 1, "mgkg": 5}, {"n": "Ceftriaxona", "dose": "30MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 30, "conc": 1000}, {"n": "Complejo B", "dose": "0.3ML/KG/24H", "via": "IV", "freq": 1, "mlkg": 0.3}, {"n": "Manitol", "dose": "1GR/KG/8H", "via": "IV", "freq": 3, "mgkg": 1000, "conc": 200}, {"n": "Imizol", "dose": "2.5MG/KG/DU", "via": "SC", "freq": 0, "mgkg": 2.5, "conc": 85.68}, {"n": "Lactulosa", "dose": "0.5ML/KG/12H", "via": "PO", "freq": 2, "mlkg": 0.5}, {"n": "Acido Tranexamico", "dose": "10MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 10, "conc": 100}, {"n": "Ondansetron", "dose": "0.35MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 0.35, "conc": 2}, {"n": "Cefalexina", "dose": "22MG/KG/12H", "via": "PO", "freq": 2, "mgkg": 22, "conc": 250}, {"n": "Marboquin", "dose": "2.5MG/KG/24H", "via": "SC", "freq": 1, "mgkg": 2.5, "conc": 100}, {"n": "Organew", "dose": "2GR/24H", "via": "PO", "freq": 1}, {"n": "Terramicina Unguento", "dose": "CAD 12HR", "via": "TOPIC", "freq": 2}, {"n": "Limpieza", "dose": "CAD 12HR", "via": "TOPIC", "freq": 2}, {"n": "Vitavet-C", "dose": "0.1ML/KG/12H", "via": "PO", "freq": 2, "mlkg": 0.1}, {"n": "CBD", "dose": "CAD 12HR", "via": "PO", "freq": 2}, {"n": "Flamosin", "dose": "0.2ML/KG/12H", "via": "PO", "freq": 2, "mlkg": 0.2}, {"n": "Atropina", "dose": "0.022ML/KG/DU", "via": "IV", "freq": 0, "mlkg": 0.022}, {"n": "Nutrigel", "dose": "0.1ML/KG/8H", "via": "PO", "freq": 3, "mlkg": 0.1}, {"n": "Ursacol 300MG", "dose": "15MG/KG/24H", "via": "PO", "freq": 1, "mgkg": 15}, {"n": "Glicopan", "dose": "0.1ML/KG/12H", "via": "PO", "freq": 2, "mlkg": 0.1}, {"n": "Medulla Ossis", "dose": "1AMP/72H", "via": "IV", "freq": 0}, {"n": "Ion-K", "dose": "CAD 12HR", "via": "PO", "freq": 2}, {"n": "Bismopet", "dose": "CAD 12HR", "via": "PO", "freq": 2}, {"n": "Carbon Activado", "dose": "DU", "via": "PO", "freq": 0}, {"n": "Penthal", "dose": "DU", "via": "IV", "freq": 0}, {"n": "Doxiciclina 20MG", "dose": "5MG/KG/24H", "via": "PO", "freq": 1, "mgkg": 5}, {"n": "Simprica 5-10KG", "dose": "DU", "via": "PO", "freq": 0}, {"n": "Opter", "dose": "CAD 12HR", "via": "OTICA", "freq": 2}, {"n": "Aguardiente", "dose": "0.3ML/KG/DU", "via": "IV", "freq": 0, "mlkg": 0.3}, {"n": "Trihepat", "dose": "CAD 12HR", "via": "PO", "freq": 2}, {"n": "Dipirona+Hioscina", "dose": "14MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 14, "conc": 500}];
 var patients=[
   {id:1,name:'GOQUI',owner:'Sandra Milena Acuña',species:'Canino',breed:'Cocker',sex:'Macho',weight:8.6,age:'4 meses',status:'hospitalizado',vet:'Dr. García',vsId:'',admitDate:'2026-04-05',reason:'Lo atropelló una moto, tratamiento de hemotropicos',diagnosis:'Trauma por atropello + hemoparásitos',emoji:'🐕',
    medications:[
@@ -433,9 +488,11 @@ var patients=[
    events:[{time:'05/04/2026 19:00',type:'alert',text:'Anemia severa HTO 22%. Plaquetas 58k. Paciente crítico.',by:'Médico'}],dayRate:35000}
 ];
 var LAB_PARAMS=[{k:'HTO',l:'Hematocrito',u:'%',ref:'37-55'},{k:'HG',l:'Hemoglobina',u:'g/dL',ref:'12-18'},{k:'LEUCO',l:'Leucocitos',u:'x10³/uL',ref:'6-17'},{k:'PLTS',l:'Plaquetas',u:'x10³/uL',ref:'200-500'},{k:'NEU',l:'Neutrófilos',u:'%',ref:'60-77'},{k:'LIN',l:'Linfocitos',u:'%',ref:'12-30'},{k:'MON',l:'Monocitos',u:'%',ref:'3-10'},{k:'ALT',l:'ALT (TGP)',u:'UI/L',ref:'10-100'},{k:'CREAT',l:'Creatinina',u:'mg/dL',ref:'0.5-1.5'},{k:'BUN',l:'BUN/Urea',u:'mg/dL',ref:'7-27'},{k:'ALP',l:'Fosfatasa Alc.',u:'UI/L',ref:'23-212'},{k:'CA',l:'Calcio',u:'mg/dL',ref:'8.5-11.5'},{k:'P',l:'Fósforo',u:'mg/dL',ref:'2.5-6.5'},{k:'ALB',l:'Albúmina',u:'g/dL',ref:'2.3-3.9'},{k:'BIL',l:'Bilirrubina T.',u:'mg/dL',ref:'0-0.9'},{k:'CHOL',l:'Colesterol',u:'mg/dL',ref:'125-270'},{k:'NH3',l:'Amonio',u:'ug/dL',ref:'0-100'},{k:'PT',l:'Prot. Total',u:'g/dL',ref:'5.5-7.8'},{k:'PTT',l:'PTT',u:'seg',ref:'60-90'},{k:'GGT',l:'GGT',u:'UI/L',ref:'0-11'}];
-var curId=null,curTab='medicamentos',filterSt='all',orderChecks={},monSel={};
+var curId=null,curTab='medicamentos',filterSt='hospitalizado',orderChecks={},monSel={};
+var USER_ROLE=localStorage.getItem('ac_role')||'medico'; // 'admin' | 'medico'
+var USER_NAME=localStorage.getItem('ac_name')||'';
 
-/* ── VETESOFT API ── */
+/* -- VETESOFT API -- */
 function vsH(){return{'Auth-Token':VS_TOKEN,'Content-Type':'application/json'};}
 function vsGet(path){return fetch(VS_BASE+path,{headers:vsH()}).then(function(r){if(!r.ok) throw new Error('HTTP '+r.status); return r.json();}).catch(function(e){console.warn('VS:',e.message);return null;});}
 
@@ -444,7 +501,7 @@ function testVetesoft(){
   if(!token){toast('⚠️ Ingresa el token');return;}
   VS_TOKEN=token;
   var st=document.getElementById('vsStatus');
-  st.innerHTML='<span class="spin"></span> Conectando…';st.className='vs-status disconnected';
+  st.innerHTML='<span class="spin"></span> Conectando...';st.className='vs-status disconnected';
   fetch(VS_BASE+'/datosBasicos/',{headers:{'Auth-Token':token}})
     .then(function(r){
       if(r.ok||r.status<400){
@@ -479,7 +536,7 @@ function loadVetesoftCatalog(){
   }
   // Si no hay cache, cargar en background
   updateConnBadge();
-  console.log('VS cargando pacientes desde API…');
+  console.log('VS cargando pacientes desde API...');
   fetch(VS_BASE+'/datosBasicos/',{headers:{'Auth-Token':VS_TOKEN}})
     .then(function(r){return r.json();})
     .then(function(d){
@@ -506,7 +563,7 @@ function updateConnBadge(){
   if(VS_TOKEN&&vsPatients.length>0)
     e.innerHTML='🟢 <strong>'+vsPatients.length.toLocaleString()+'</strong> pacientes listos — busca por nombre, dueño o cédula';
   else if(VS_TOKEN)
-    e.innerHTML='🟡 Cargando pacientes de Vetesoft… <span class="spin"></span>';
+    e.innerHTML='🟡 Cargando pacientes de Vetesoft... <span class="spin"></span>';
   else
     e.textContent='🔗 Configura Vetesoft para buscar pacientes';
 }
@@ -517,7 +574,7 @@ function searchVsPatient(q){
   // Si aún no hay datos, esperar y reintentar
   if(!vsPatients.length){
     res.innerHTML='<div class="search-item" style="gap:10px"><span class="spin"></span>'+
-      '<div class="search-item-sub">Cargando pacientes de Vetesoft, espera un momento…</div></div>';
+      '<div class="search-item-sub">Cargando pacientes de Vetesoft, espera un momento...</div></div>';
     res.style.display='block';
     // Reintentar en 800ms
     searchTimer=setTimeout(function(){searchVsPatient(q);},800);
@@ -602,9 +659,91 @@ function fillPatFromVs(idx){
   if(badge) badge.innerHTML='✅ <strong>'+p.paciente+'</strong> · '+p.propietario+(p.documento?' · CC:'+p.documento:'');
   toast('✅ '+p.paciente+' cargado');
 }
+// -- Búsqueda catálogo local de medicamentos
+var medHitMap={};
+function searchMedCatalog(q){
+  clearTimeout(searchTimer);
+  var res=document.getElementById('med-results');
+  if(!q||q.length<1){res.style.display='none';return;}
+  var ql=q.toLowerCase();
+  var hits=MED_CATALOG.filter(function(m){return m.n.toLowerCase().includes(ql);}).slice(0,12);
+  medHitMap={};
+  if(!hits.length){res.style.display='none';return;}
+  res.innerHTML=hits.map(function(m,i){
+    medHitMap[i]=m;
+    var viaCls={'IV':'v-IV','PO':'v-PO','SC':'v-SC','IM':'v-IM','TOPIC':'v-TOPIC','OTICA':'v-OTICA','NEB':'v-SC'}[m.via]||'';
+    return '<div class="search-item" onclick="fillMedFromCatalog('+i+')">'+
+      '<div style="min-width:0;flex:1"><div class="search-item-name">'+m.n+'</div>'+
+      '<div class="search-item-sub" style="display:flex;gap:6px;align-items:center">'+
+        '<span class="via '+viaCls+'">'+m.via+'</span>'+
+        '<span style="font-family:monospace;font-size:11px;color:var(--text)">'+m.dose+'</span>'+
+        (m.conc?'<span style="color:var(--dim)">'+m.conc+'mg/ml</span>':'')+
+      '</div></div></div>';
+  }).join('');
+  res.style.display='block';
+}
+function fillMedFromCatalog(idx){
+  var m=medHitMap[idx]; if(!m) return;
+  var p=gp();
+  document.getElementById('med-name').value=m.n.toUpperCase();
+  document.getElementById('med-dose').value=m.dose;
+  document.getElementById('med-vsid').value='';
+  // Vía
+  var sel=document.getElementById('med-via');
+  for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===m.via){sel.selectedIndex=i;break;}}
+  // Frecuencia
+  var fsel=document.getElementById('med-freq');
+  for(var j=0;j<fsel.options.length;j++){if(fsel.options[j].value===String(m.freq)){fsel.selectedIndex=j;break;}}
+  // Concentración
+  if(m.conc) document.getElementById('med-conc').value=m.conc;
+  else document.getElementById('med-conc').value='';
+  // Calcular ML
+  calcMedMl(m);
+  // Tag
+  var tag=document.getElementById('med-selected-tag');
+  tag.style.display='block';
+  tag.innerHTML='<span class="prod-tag">📋 Catálogo: '+m.n+'</span>';
+  document.getElementById('med-results').style.display='none';
+  document.getElementById('med-search').value='';
+}
+function calcMedMl(mOverride){
+  var p=gp(); if(!p||!p.weight) return;
+  var peso=parseFloat(p.weight)||0; if(!peso) return;
+  var panel=document.getElementById('med-calc-panel');
+  var detail=document.getElementById('med-calc-detail');
+  var hint=document.getElementById('med-ml-hint');
+  // Usar el medicamento del override o leer del form
+  var mgkg=mOverride&&mOverride.mgkg ? mOverride.mgkg : null;
+  var mlkg=mOverride&&mOverride.mlkg ? mOverride.mlkg : null;
+  var conc=parseFloat(document.getElementById('med-conc').value)||0;
+  var ml=null; var explain='';
+  if(mlkg){
+    ml=mlkg*peso;
+    explain='ml/kg: '+mlkg+' × '+peso+'kg = '+ml.toFixed(2)+' ml';
+  } else if(mgkg&&conc){
+    var mgTotal=mgkg*peso;
+    ml=mgTotal/conc;
+    explain='mg/kg: '+mgkg+' x '+peso+'kg = '+mgTotal.toFixed(2)+'mg  |  '+mgTotal.toFixed(2)+'mg / '+conc+'mg/ml = '+ml.toFixed(2)+' ml';
+  } else if(mgkg&&!conc){
+    explain='Ingresa la concentración (mg/ml) para calcular ml';
+  }
+  if(ml!==null&&ml>0){
+    ml=Math.round(ml*100)/100;
+    document.getElementById('med-ml').value=ml;
+    if(hint) hint.textContent='calculado';
+    panel.style.display='block';
+    detail.textContent=explain;
+  } else if(explain){
+    panel.style.display='block';
+    detail.textContent=explain;
+  }
+}
+
+// -- Búsqueda Vetesoft para modal med
 function searchVsProduct(q){
   clearTimeout(searchTimer);
-  var res=document.getElementById('med-results'),sp=document.getElementById('med-spin');
+  var res=document.getElementById('med-results-vs'),sp=document.getElementById('med-spin');
+  if(!res) return;
   if(!q||q.length<2){res.style.display='none';return;}
   sp.style.display='block';
   searchTimer=setTimeout(function(){
@@ -631,7 +770,7 @@ function fillMedFromVs(js){
   var price=p.precio||p.price||p.valor||0;var id=p.id||p.ID||'';
   document.getElementById('med-name').value=name.toUpperCase();
   document.getElementById('med-price').value=price;document.getElementById('med-vsid').value=id;
-  document.getElementById('med-results').style.display='none';document.getElementById('med-search').value='';
+  document.getElementById('med-results-vs').style.display='none';document.getElementById('med-search-vs').value='';
   var tag=document.getElementById('med-selected-tag');tag.style.display='block';
   tag.innerHTML='<span class="prod-tag">✓ Desde Vetesoft: '+name+(id?' (ID:'+id+')':'')+'</span>';
   toast('💊 Producto cargado desde Vetesoft');
@@ -639,7 +778,7 @@ function fillMedFromVs(js){
 function loadClinicalHistory(vsId){
   if(!VS_TOKEN||!vsId){toast('⚠️ Necesitas token Vetesoft e ID del paciente');return;}
   var body=document.getElementById('modalHistoryBody');
-  body.innerHTML='<div class="empty"><span class="spin" style="width:24px;height:24px;border-width:3px"></span><div class="empty-title" style="margin-top:14px">Cargando historial…</div></div>';
+  body.innerHTML='<div class="empty"><span class="spin" style="width:24px;height:24px;border-width:3px"></span><div class="empty-title" style="margin-top:14px">Cargando historial...</div></div>';
   openModal('modalHistory');
   vsGet('/historiaClinica/?id_animal='+encodeURIComponent(vsId)).then(function(data){
     if(!data){body.innerHTML='<div class="empty"><div class="empty-ico">⚠️</div><div class="empty-title">No se pudo cargar</div><div class="empty-sub">Verifica la conexión y el ID del paciente</div></div>';return;}
@@ -657,7 +796,7 @@ function loadClinicalHistory(vsId){
   });
 }
 
-/* ── SIDEBAR ── */
+/* -- SIDEBAR -- */
 function gp(){return patients.find(function(p){return p.id===curId;});}
 function days(p){var e=p.dischargeDate?new Date(p.dischargeDate):new Date();return Math.max(1,Math.ceil((e-new Date(p.admitDate))/86400000));}
 function nowStr(){return new Date().toLocaleString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
@@ -685,14 +824,14 @@ function doFilter(st,btn){filterSt=st;document.querySelectorAll('.ftab').forEach
 function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sbBackdrop').classList.add('show');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sbBackdrop').classList.remove('show');}
 
-/* ── DETAIL ── */
+/* -- DETAIL -- */
 function selPat(id){curId=id;curTab='ficha';renderSidebar();renderDetail();if(isMobile())closeSidebar();}
 function renderDetail(){
   var p=gp();if(!p)return;var d=days(p);
   document.getElementById('mobTitle').textContent=p.name;
   document.getElementById('mobTop').style.display='flex';document.getElementById('mobNav').style.display='flex';
   var dh=document.getElementById('detailHead');dh.style.display='flex';
-  // ── Botones de acción según estado
+  // -- Botones de acción según estado
   var actBtns=(p.vsId?'<button class="btn btn-g btn-sm" onclick="loadClinicalHistory(\''+p.vsId+'\')">📁 VS</button>':'<button class="btn btn-g btn-sm" style="opacity:.4" title="Sin ID Vetesoft">📁 VS</button>')+
     (p.status==='hospitalizado'?'<button class="btn btn-g btn-sm" onclick="dischargePatient()">✓ Alta</button><button class="btn btn-r btn-sm" onclick="deceasedPatient()">✝</button>':'');
   dh.innerHTML='<div class="detail-head" style="align-items:flex-start;gap:12px;padding:12px 16px">'+
@@ -726,6 +865,7 @@ function renderDetail(){
     '<div style="display:flex;gap:5px;flex-shrink:0;align-items:flex-start">'+actBtns+'</div>'+
     '</div>';
   var TABS=[{id:'medicamentos',l:'💊 Medicamentos'},{id:'orden',l:'✅ Orden'},{id:'monitoreo',l:'📊 Monitoreo'},{id:'labs',l:'🔬 Exámenes'},{id:'eventos',l:'⚡ Novedades'},{id:'factura',l:'💰 Facturación'}];
+  updateRoleUI();
   document.getElementById('tabsBar').innerHTML=TABS.map(function(t){return '<div class="tab'+(curTab===t.id?' on':'')+'" onclick="switchTab(\''+t.id+'\')">'+t.l+'</div>';}).join('');
   renderTabContent();
 }
@@ -743,7 +883,7 @@ function renderTabContent(){
    monitoreo:function(){rMon(p,c,ha);},labs:function(){rLabs(p,c,ha);},eventos:function(){rEvents(p,c,ha);},factura:function(){rFactura(p,c,ha);}})[curTab]();
 }
 
-/* ── FICHA ── */
+/* -- FICHA -- */
 function rFicha(p,c,ha){
   ha.innerHTML=(p.vsId?'<button class="btn btn-g btn-sm" onclick="loadClinicalHistory(\''+p.vsId+'\')">📁 Historial VS</button>':'<button class="btn btn-g btn-sm" style="opacity:.45" title="Agrega ID Vetesoft">📁 Historial VS</button>')+
     (p.status==='hospitalizado'?'<button class="btn btn-g btn-sm" onclick="dischargePatient()">✓ Alta</button><button class="btn btn-r btn-sm" onclick="deceasedPatient()">✝</button>':'');
@@ -755,14 +895,14 @@ function rFicha(p,c,ha){
     '<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--purple)"></span>Gestión Clínica</div></div><div class="sec-body">'+
     '<div class="field"><div class="fl">Propietario</div><div style="font-size:13px;font-weight:600">'+p.owner+'</div></div>'+
     '<div class="field"><div class="fl">Médico</div><div style="font-size:13px;font-weight:600">'+p.vet+'</div></div>'+
-    '<div class="field"><div class="fl">Ingreso</div><div style="font-size:13px;font-weight:600;font-family:\'JetBrains Mono\',monospace">'+p.admitDate+'</div></div>'+
-    (p.dischargeDate?'<div class="field"><div class="fl">Alta</div><div style="font-size:13px;font-weight:600;color:var(--teal);font-family:\'JetBrains Mono\',monospace">'+p.dischargeDate+'</div></div>':'')+
+    '<div class="field"><div class="fl">Ingreso</div><div style="font-size:13px;font-weight:600;font-family:JetBrains Mono,monospace">'+p.admitDate+'</div></div>'+
+    (p.dischargeDate?'<div class="field"><div class="fl">Alta</div><div style="font-size:13px;font-weight:600;color:var(--teal);font-family:JetBrains Mono,monospace">'+p.dischargeDate+'</div></div>':'')+
     '</div></div>'+
     '<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--amber)"></span>Motivo de Consulta</div></div><div class="sec-body"><p style="font-size:13px;line-height:1.6">'+(p.reason||'<span style="color:var(--dim)">Sin registrar</span>')+'</p></div></div>'+
     '<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--red)"></span>Diagnóstico Presuntivo</div></div><div class="sec-body"><p style="font-size:13px;line-height:1.6">'+(p.diagnosis||'<span style="color:var(--dim)">Sin registrar</span>')+'</p></div></div>';
 }
 
-/* ── MEDICAMENTOS ── */
+/* -- MEDICAMENTOS -- */
 function rMeds(p,c,ha){
   ha.innerHTML='<button class="btn btn-p btn-sm" onclick="openModal(\'modalMed\')">＋ Medicamento</button>';
   var active=p.medications.filter(function(m){return !m.susp;}).length;
@@ -774,7 +914,7 @@ function rMeds(p,c,ha){
       '<td class="dcell">'+m.dose+'</td><td class="dcell">'+m.ml+'</td>'+
       '<td><span class="via v-'+m.via+'">'+m.via+'</span></td>'+
       '<td style="color:var(--muted);font-size:12px">'+(m.freq===0?'Única':'x'+m.freq+'/d')+'</td>'+
-      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--muted)">'+(m.price>0?'$'+m.price.toLocaleString():'—')+'</td>'+
+      '<td style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--muted)">'+(m.price>0?'$'+m.price.toLocaleString():'—')+'</td>'+
       '<td><button onclick="removeMed('+i+')" class="btn btn-r btn-sm">x</button></td></tr>';
   }).join('');
   c.innerHTML='<div class="ib ib-amber">🔴 = Suspendido · El auxiliar NO debe administrarlo</div>'+
@@ -785,31 +925,127 @@ function rMeds(p,c,ha){
 function toggleSusp(i){var p=gp();p.medications[i].susp=!p.medications[i].susp;renderTabContent();toast(p.medications[i].susp?'Suspendido':'Reactivado');}
 function removeMed(i){var p=gp();if(!confirm('Eliminar '+p.medications[i].name+'?'))return;p.medications.splice(i,1);renderTabContent();toast('Eliminado');}
 
-/* ── ORDEN ── */
+/* -- ORDEN -- */
 function rOrden(p,c,ha){
-  ha.innerHTML='';
+  var view=p._ordenView||'diario';
+  var b1=document.createElement('button');
+  b1.className='btn btn-sm '+(view!=='semanal'?'btn-p':'btn-g');
+  b1.textContent='Hoy';
+  b1.onclick=function(){setOrdenView('diario');};
+  var b2=document.createElement('button');
+  b2.className='btn btn-sm '+(view==='semanal'?'btn-p':'btn-g');
+  b2.textContent='Semanal';
+  b2.onclick=function(){setOrdenView('semanal');};
+  var wrap=document.createElement('div');
+  wrap.style.cssText='display:flex;gap:6px;align-items:center';
+  wrap.appendChild(b1);wrap.appendChild(b2);
+  ha.innerHTML='';ha.appendChild(wrap);
+  if(view==='semanal') renderOrdenSemanal(p,c);
+  else renderOrdenDiario(p,c);
+}
+function setOrdenView(v){var p=gp();if(p){p._ordenView=v;renderTabContent();}}
+
+function renderOrdenDiario(p,c){
   var now=new Date(),active=p.medications.filter(function(m){return !m.susp;});
   function grp(title,time,meds,ico){
     if(!meds.length)return '';
     var key=curId+'-'+title;if(!orderChecks[key])orderChecks[key]={};
     var done=Object.values(orderChecks[key]).filter(Boolean).length;
-    return '<div class="order-grp"><div class="order-grp-hd"><div class="order-grp-title">'+ico+' '+title+'</div>'+
-      '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--muted)">'+done+'/'+meds.length+'</span>'+
-      '<span style="font-size:11px;color:var(--muted);font-family:\'JetBrains Mono\',monospace">'+time+'</span></div></div>'+
-      meds.map(function(m){var chk=!!orderChecks[key][m.id];
-        return '<div class="order-item"><button class="oi-check'+(chk?' done':'')+'" onclick="chkOrd(\''+key+'\','+m.id+',this)">'+(chk?'✓':'')+'</button>'+
-          '<div class="oi-name">'+m.name+'</div><div class="oi-dose">'+m.ml+' ml</div>'+
-          '<span class="via v-'+m.via+'">'+m.via+'</span></div>';}).join('')+'</div>';
+    var items=meds.map(function(m){
+      var chk=!!orderChecks[key][m.id];
+      return '<div class="order-item">'+
+        '<button class="oi-check'+(chk?' done':'')+'" data-key="'+key+'" data-id="'+m.id+'" onclick="chkOrdBtn(this)">'+(chk?'&#10003;':'')+' </button>'+
+        '<div class="oi-name">'+m.name+'</div>'+
+        '<div class="oi-dose">'+m.ml+'ml</div>'+
+        '<span class="via v-'+m.via+'">'+m.via+'</span>'+
+        '</div>';
+    }).join('');
+    return '<div class="order-grp">'+
+      '<div class="order-grp-hd">'+
+        '<div class="order-grp-title">'+ico+' '+title+'</div>'+
+        '<div style="display:flex;align-items:center;gap:8px">'+
+          '<span style="font-size:11px;color:var(--muted)">'+done+'/'+meds.length+'</span>'+
+          '<span style="font-size:11px;color:var(--muted)">'+time+'</span>'+
+        '</div>'+
+      '</div>'+items+'</div>';
   }
-  c.innerHTML='<div style="padding:10px 13px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'+
-    '<div><div style="font-weight:700;font-size:14px">'+p.emoji+' '+p.name+'</div><div style="font-size:11px;color:var(--muted)">'+p.owner+' · '+p.weight+'kg · '+p.vet+'</div></div>'+
-    '<div style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--muted)">'+now.toLocaleDateString('es-CO')+'</div></div>'+
-    '<div class="ib ib-teal">Marca cada med tras administrarlo. Queda registrado en el historial.</div>'+
-    grp('Mañana','07:00-08:00',active.filter(function(m){return m.freq>=1;}),'🌅')+
-    grp('Tarde','13:00-14:00',active.filter(function(m){return m.freq>=2;}),'☀️')+
-    grp('Noche','19:00-20:00',active.filter(function(m){return m.freq>=3;}),'🌙')+
-    grp('Madrugada','01:00-02:00',active.filter(function(m){return m.freq>=4;}),'⭐');
+
+  c.innerHTML='<div style="padding:8px 12px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">'+
+    '<div><span style="font-weight:700">'+p.emoji+' '+p.name+'</span><span style="font-size:11px;color:var(--muted);margin-left:8px">'+p.weight+'kg</span></div>'+
+    '<span style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted)">'+now.toLocaleDateString('es-CO')+'</span></div>'+
+    '<div class="ib ib-teal" style="font-size:11px">Marca cada med tras administrarlo.</div>'+
+    grp('Manana','07:00',active.filter(function(m){return m.freq>=1;}),'Manana')+
+    grp('Tarde','13:00',active.filter(function(m){return m.freq>=2;}),'Tarde')+
+    grp('Noche','19:00',active.filter(function(m){return m.freq>=3;}),'Noche')+
+    grp('Madrugada','01:00',active.filter(function(m){return m.freq>=4;}),'Madrug');
 }
+
+function renderOrdenSemanal(p,c){
+  var admit=new Date(p.admitDate);var today=new Date();
+  var days=[];
+  for(var i=0;i<7;i++){
+    var d=new Date(admit.getTime()); d.setDate(admit.getDate()+i);
+    if(d>today) break;
+    days.push(new Date(d.getTime()));
+  }
+  if(!days.length){c.innerHTML='<div class="empty"><div class="empty-ico">📅</div><div class="empty-title">Sin días registrados aún</div></div>';return;}
+  var TURNOS=[{k:'M',l:'M'},{k:'T',l:'T'},{k:'N',l:'N'},{k:'A',l:'A'}];
+  var active=p.medications.filter(function(m){return !m.susp;});
+  var pad=function(n){return n<10?'0'+n:n;};
+  var thead='<thead><tr>'+
+    '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--border);position:sticky;left:0;background:var(--surface);z-index:2;min-width:130px">Medicamento</th>'+
+    '<th style="padding:7px 5px;font-size:10px;color:var(--dim);border-bottom:1px solid var(--border);width:28px">Via</th>'+
+    days.map(function(d){
+      var isT=d.toDateString()===today.toDateString();
+      return '<th colspan="4" style="padding:4px 2px;text-align:center;font-size:10px;font-weight:700;border-bottom:1px solid var(--border);border-left:1px solid var(--border);color:'+(isT?'var(--teal)':'var(--muted)')+';background:'+(isT?'var(--teald)':'')+'">'+
+        pad(d.getDate())+'/'+pad(d.getMonth()+1)+(isT?'<br><span style="font-size:8px">HOY</span>':'')+'</th>';
+    }).join('')+'</tr>'+
+    '<tr><th style="position:sticky;left:0;background:var(--surface);z-index:2;border-bottom:1px solid var(--border)"></th><th style="border-bottom:1px solid var(--border)"></th>'+
+    days.map(function(d){
+      return TURNOS.map(function(t){
+        return '<th style="padding:2px 1px;text-align:center;font-size:9px;color:var(--dim);border-bottom:1px solid var(--border);border-left:1px solid rgba(42,48,64,.3);width:22px">'+t.l+'</th>';
+      }).join('');
+    }).join('')+'</tr></thead>';
+
+  var tbody='<tbody>'+active.map(function(m){
+    var cells='<td style="padding:5px 10px;font-size:12px;font-weight:500;position:sticky;left:0;background:var(--surface);z-index:1;white-space:nowrap;border-bottom:1px solid rgba(42,48,64,.25)">'+
+      m.name+'<span style="color:var(--teal);font-family:monospace;font-size:10px;margin-left:5px">'+m.ml+'ml</span></td>'+
+      '<td style="padding:3px 4px;text-align:center;border-bottom:1px solid rgba(42,48,64,.25)"><span class="via v-'+m.via+'" style="font-size:8px;padding:1px 3px">'+m.via+'</span></td>';
+    days.forEach(function(d){
+      var dateKey=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+      var isT=d.toDateString()===today.toDateString();
+      var bg=isT?'background:rgba(0,201,167,.04);':'';
+      TURNOS.forEach(function(t){
+        var admins=p.admins[m.id]||[];
+        var done=admins.some(function(ts){
+          var dt=new Date(ts);
+          var dk=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
+          var h=dt.getHours();
+          return dk===dateKey&&((t.k==='M'&&h>=6&&h<12)||(t.k==='T'&&h>=12&&h<18)||(t.k==='N'&&h>=18&&h<24)||(t.k==='A'&&h>=0&&h<6));
+        });
+        var freqOk=(t.k==='M'&&m.freq>=1)||(t.k==='T'&&m.freq>=2)||(t.k==='N'&&m.freq>=3)||(t.k==='A'&&m.freq>=4)||m.freq===0;
+        var bl='border-bottom:1px solid rgba(42,48,64,.25);border-left:1px solid rgba(42,48,64,.2);';
+        if(!freqOk){
+          cells+='<td style="'+bg+bl+'text-align:center;color:var(--dim);font-size:9px">-</td>';
+        } else if(done){
+          cells+='<td style="'+bg+bl+'text-align:center;background:rgba(0,201,167,.18)"><span style="color:var(--teal);font-size:13px;font-weight:700;line-height:1">&#10003;</span></td>';
+        } else {
+          cells+='<td style="'+bg+bl+'text-align:center;color:var(--border);font-size:11px">&#183;</td>';
+        }
+      });
+    });
+    return '<tr>'+cells+'</tr>';
+  }).join('')+'</tbody>';
+
+  c.innerHTML='<div style="padding:8px 12px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px">'+
+    '<div><span style="font-weight:700">'+p.emoji+' '+p.name+'</span><span style="font-size:11px;color:var(--muted);margin-left:8px">Dia '+Math.max(1,Math.ceil((today-admit)/86400000))+' de hospitalizacion</span></div>'+
+    '<div style="display:flex;gap:14px;font-size:10px;color:var(--muted)">'+
+    '<span><span style="color:var(--teal);font-weight:700">M</span>=Manana <span style="color:var(--teal);font-weight:700">T</span>=Tarde <span style="color:var(--teal);font-weight:700">N</span>=Noche <span style="color:var(--teal);font-weight:700">A</span>=Madrugada</span>'+
+    '</div></div>'+
+    '<div style="overflow-x:auto"><div class="sec" style="overflow:hidden"><table style="width:100%;border-collapse:collapse;min-width:'+(160+days.length*95)+'px">'+thead+tbody+'</table></div></div>';
+}
+
+function chkOrdBtn(btn){chkOrd(btn.dataset.key,parseInt(btn.dataset.id),btn);}
 function chkOrd(key,medId,btn){
   if(!orderChecks[key])orderChecks[key]={};
   orderChecks[key][medId]=!orderChecks[key][medId];
@@ -818,7 +1054,7 @@ function chkOrd(key,medId,btn){
   rOrden(gp(),document.getElementById('mainContent'),document.getElementById('hdrActions'));
 }
 
-/* ── MONITOREO ── */
+/* -- MONITOREO -- */
 function rMon(p,c,ha){
   ha.innerHTML='<button class="btn btn-p btn-sm" onclick="showMonForm()">+ Nuevo Reporte</button>';
   var last=p.monitoring[p.monitoring.length-1];
@@ -833,10 +1069,10 @@ function rMon(p,c,ha){
       '</tr></thead><tbody>'+ROWS.map(function(row){
         return '<tr><td style="padding:6px 12px;font-size:12px;color:var(--muted);border-bottom:1px solid rgba(42,48,64,.3)">'+row.l+'</td>'+
           p.monitoring.map(function(m){var v=m[row.k];var isb=typeof v==='boolean';
-            return '<td style="padding:6px 10px;text-align:center;border-bottom:1px solid rgba(42,48,64,.3);font-family:\'JetBrains Mono\',monospace;font-size:12px">'+(isb?(v?'<span style="color:var(--teal)">✓</span>':'<span style="color:var(--red)">✗</span>'):(v||'<span style="color:var(--dim)">—</span>'))+'</td>';}).join('')+'</tr>';
+            return '<td style="padding:6px 10px;text-align:center;border-bottom:1px solid rgba(42,48,64,.3);font-family:JetBrains Mono,monospace;font-size:12px">'+(isb?(v?'<span style="color:var(--teal)">✓</span>':'<span style="color:var(--red)">✗</span>'):(v||'<span style="color:var(--dim)">—</span>'))+'</td>';}).join('')+'</tr>';
       }).join('')+'</tbody></table></div></div>';
   }
-  c.innerHTML='<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--teal)"></span>Signos Vitales Recientes</div>'+(last?'<span style="font-size:10px;color:var(--dim);font-family:\'JetBrains Mono\',monospace">'+last.date+' '+last.hour+'</span>':'')+'</div><div class="sec-body">'+vitals+'</div></div>'+hist+'<div id="monForm" style="display:none;margin-top:12px"></div>';
+  c.innerHTML='<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--teal)"></span>Signos Vitales Recientes</div>'+(last?'<span style="font-size:10px;color:var(--dim);font-family:JetBrains Mono,monospace">'+last.date+' '+last.hour+'</span>':'')+'</div><div class="sec-body">'+vitals+'</div></div>'+hist+'<div id="monForm" style="display:none;margin-top:12px"></div>';
 }
 function showMonForm(){
   var form=document.getElementById('monForm');if(!form)return;monSel={};form.style.display='block';
@@ -874,7 +1110,7 @@ function saveMon(){
   monSel={};renderTabContent();toast('Reporte guardado');
 }
 
-/* ── LABS ── */
+/* -- LABS -- */
 function rLabs(p,c,ha){
   if(!p.labs)p.labs={};if(!p.labDates)p.labDates=[];ha.innerHTML='';
   c.innerHTML='<div class="ib ib-purple">🔬 Ingresa valores en columna <strong>Hoy</strong> y presiona Guardar.</div>'+
@@ -886,7 +1122,7 @@ function rLabs(p,c,ha){
     '<th style="text-align:center;width:85px;color:var(--teal)">Hoy +</th></tr></thead><tbody>'+
     LAB_PARAMS.map(function(lp){var vals=p.labs[lp.k]||[];
       return '<tr><td style="color:var(--muted)">'+lp.l+'</td>'+
-        '<td style="text-align:center;font-size:10px;color:var(--dim);font-family:\'JetBrains Mono\',monospace">'+lp.ref+'</td>'+
+        '<td style="text-align:center;font-size:10px;color:var(--dim);font-family:JetBrains Mono,monospace">'+lp.ref+'</td>'+
         '<td style="font-size:10px;color:var(--dim)">'+lp.u+'</td>'+
         p.labDates.map(function(d,i){var v=vals[i]||'';return '<td style="text-align:center"><span class="lval '+(v?'ok':'')+'">'+( v||'—')+'</span></td>';}).join('')+
         '<td style="text-align:center"><input class="linput" id="lab-'+lp.k+'" placeholder="—"></td></tr>';
@@ -902,7 +1138,7 @@ function saveLabs(){
   if(hasData){p.labDates.push(today);renderTabContent();toast('Control guardado');}else toast('Ingresa al menos un valor');
 }
 
-/* ── EVENTOS ── */
+/* -- EVENTOS -- */
 function rEvents(p,c,ha){
   ha.innerHTML='<button class="btn btn-p btn-sm" onclick="openModal(\'modalEvent\')">+ Novedad</button>';
   c.innerHTML='<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--amber)"></span>Novedades</div>'+
@@ -914,9 +1150,9 @@ function rEvents(p,c,ha){
     '</div></div>';
 }
 
-/* ── FACTURA ── */
+/* -- FACTURA -- */
 function rFactura(p,c,ha){
-  ha.innerHTML='<button class="btn btn-g btn-sm" onclick="toast(\'Exportando…\')">Exportar</button><button class="btn btn-p btn-sm" onclick="toast(\'Listo para TNS · Configura la API\')">→ TNS</button>';
+  ha.innerHTML='<button class="btn btn-g btn-sm" onclick="toast(\'Exportando...\')">Exportar</button><button class="btn btn-p btn-sm" onclick="toast(\'Listo para TNS · Configura la API\')">→ TNS</button>';
   var d=days(p),hospT=p.dayRate*d;
   var meds=p.medications.map(function(m){var td=(m.freq||1)*d;return Object.assign({},m,{totalDoses:td,totalMl:m.ml*td,totalCost:m.price*td});});
   var medT=meds.reduce(function(s,m){return s+m.totalCost;},0);var grand=hospT+medT;
@@ -936,13 +1172,13 @@ function rFactura(p,c,ha){
         '<div class="bill-num" style="font-size:11px">'+m.totalDoses+'x'+(exact?'<br><span style="color:var(--teal)">'+exact+'✓</span>':'')+'</div>'+
         '<div class="bill-unit">'+(m.price?'$'+m.price.toLocaleString():'—')+'</div>'+
         '<div class="bill-tot" style="'+(m.price===0?'color:var(--dim)':'')+'">'+(m.price?'$'+m.totalCost.toLocaleString():'—')+'</div></div>';}).join('')+
-    '<div class="bill-foot"><div><div style="font-size:11px;color:var(--muted)">Subtotal meds</div><div style="font-family:\'JetBrains Mono\',monospace;font-size:14px">$'+medT.toLocaleString()+'</div></div>'+
+    '<div class="bill-foot"><div><div style="font-size:11px;color:var(--muted)">Subtotal meds</div><div style="font-family:JetBrains Mono,monospace;font-size:14px">$'+medT.toLocaleString()+'</div></div>'+
     '<div style="text-align:right"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">TOTAL ESTIMADO</div><div class="bill-grand">$'+grand.toLocaleString()+' COP</div></div></div>'+
     '</div>'+
     '<div class="ib ib-teal" style="margin-top:10px;font-size:11px">El número verde (✓) son dosis confirmadas en la Orden. Para cobro exacto usa solo esas.</div>';
 }
 
-/* ── MODALS ── */
+/* -- MODALS -- */
 function openModal(id){
   document.getElementById(id).classList.add('open');
   if(id==='modalNew')updateConnBadge();
@@ -974,7 +1210,8 @@ function saveMed(){
     ml:parseFloat(document.getElementById('med-ml').value)||0,via:document.getElementById('med-via').value,
     freq:parseInt(document.getElementById('med-freq').value)||1,price:parseInt(document.getElementById('med-price').value)||0,
     vsId:document.getElementById('med-vsid').value.trim(),susp:false});
-  ['med-name','med-dose','med-ml','med-price','med-vsid','med-search'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  ['med-name','med-dose','med-ml','med-price','med-vsid','med-search','med-search-vs','med-conc'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  var cp=document.getElementById('med-calc-panel');if(cp)cp.style.display='none';
   var tag=document.getElementById('med-selected-tag');if(tag)tag.style.display='none';
   closeModal('modalMed');renderTabContent();toast('Medicamento agregado');
 }
@@ -993,9 +1230,60 @@ function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.c
 document.addEventListener('click',function(e){
   if(!e.target.closest('#vs-search')&&!e.target.closest('#vs-results')){var r=document.getElementById('vs-results');if(r)r.style.display='none';}
   if(!e.target.closest('#med-search')&&!e.target.closest('#med-results')){var r2=document.getElementById('med-results');if(r2)r2.style.display='none';}
+  if(!e.target.closest('#med-search-vs')&&!e.target.closest('#med-results-vs')){var r3=document.getElementById('med-results-vs');if(r3)r3.style.display='none';}
 });
 
-/* ── INIT ── */
+/* -- LOGIN -- */
+var ADMIN_PIN='1234'; // cambiar en producción
+function updateLoginRole(){
+  var role=document.getElementById('login-role').value;
+  var pf=document.getElementById('login-pin-field');
+  if(pf) pf.style.display=role==='admin'?'block':'none';
+}
+function doLogin(){
+  var role=document.getElementById('login-role').value;
+  var name=(document.getElementById('login-name').value||'').trim();
+  if(!name){toast('⚠️ Ingresa tu nombre');return;}
+  if(role==='admin'){
+    var pin=document.getElementById('login-pin').value;
+    if(pin!==ADMIN_PIN){toast('❌ PIN incorrecto');return;}
+  }
+  USER_ROLE=role; USER_NAME=name;
+  localStorage.setItem('ac_role',role);
+  localStorage.setItem('ac_name',name);
+  document.getElementById('loginScreen').style.display='none';
+  // Mostrar nombre en sidebar
+  var el=document.getElementById('userBadge');
+  if(el) el.innerHTML=(role==='admin'?'🔑 ':'👤 ')+'<strong>'+name+'</strong> · '+(role==='admin'?'Admin':'Médico');
+  // Si médico, ocultar tab factura
+  updateRoleUI();
+  toast('Bienvenido/a, '+name);
+}
+function updateRoleUI(){
+  // Ocultar tab factura para médicos
+  document.querySelectorAll('.tab').forEach(function(t){
+    if(t.textContent.includes('Facturación')||t.textContent.includes('💰')){
+      t.style.display=USER_ROLE==='admin'?'':'none';
+    }
+  });
+  document.querySelectorAll('.mob-nav-item').forEach(function(b){
+    if(b.dataset.tab==='factura') b.style.display=USER_ROLE==='admin'?'':'none';
+  });
+}
+function logout(){
+  localStorage.removeItem('ac_role');localStorage.removeItem('ac_name');
+  location.reload();
+}
+// Auto-login si ya había sesión
+(function(){
+  if(USER_ROLE&&USER_NAME&&USER_NAME.length>0){
+    document.getElementById('loginScreen').style.display='none';
+    var el=document.getElementById('userBadge');
+    if(el) el.innerHTML=(USER_ROLE==='admin'?'🔑 ':'👤 ')+'<strong>'+USER_NAME+'</strong>';
+  }
+})();
+
+/* -- INIT -- */
 renderSidebar();
 selPat(1);
 if(VS_TOKEN)loadVetesoftCatalog();
