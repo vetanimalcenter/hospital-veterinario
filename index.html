@@ -343,6 +343,7 @@ select.fi{cursor:pointer}
       <div class="field"><div class="fl">Diagnóstico presuntivo</div><textarea class="fi" id="nw-diagnosis" rows="2" placeholder="Diagnóstico inicial..."></textarea></div>
       <div class="field"><div class="fl">Médico que recibe</div>
         <select class="fi" id="nw-vet">
+          <option value="">-- Selecciona médico --</option>
           <option>Wilmer Páez</option>
           <option>Wilmer Rodríguez</option>
           <option>Marisol Villamizar</option>
@@ -902,25 +903,31 @@ function rFicha(p,c,ha){
     '<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--red)"></span>Diagnóstico Presuntivo</div></div><div class="sec-body"><p style="font-size:13px;line-height:1.6">'+(p.diagnosis||'<span style="color:var(--dim)">Sin registrar</span>')+'</p></div></div>';
 }
 
-/* -- MEDICAMENTOS -- */
+/* -- MEDICAMENTOS + ORDEN (unified) -- */
 function rMeds(p,c,ha){
-  ha.innerHTML='<button class="btn btn-p btn-sm" onclick="openModal(\'modalMed\')">＋ Medicamento</button>';
+  ha.innerHTML='<button class="btn btn-p btn-sm" onclick="openModal(\'modalMed\')">+ Medicamento</button>';
   var active=p.medications.filter(function(m){return !m.susp;}).length;
   var daily=p.medications.filter(function(m){return !m.susp;}).reduce(function(s,m){return s+(m.price*(m.freq||1));},0);
   var rows=p.medications.map(function(m,i){
-    return '<tr class="'+(m.susp?'susp':'')+'">'+
-      '<td><button onclick="toggleSusp('+i+')" style="background:none;border:none;cursor:pointer;font-size:15px">'+(m.susp?'🔴':'🟢')+'</button></td>'+
-      '<td style="font-weight:500">'+m.name+(m.vsId?'<span style="font-size:9px;color:var(--teal);margin-left:4px">VS</span>':'')+'</td>'+
-      '<td class="dcell">'+m.dose+'</td><td class="dcell">'+m.ml+'</td>'+
+    return '<tr class="'+(m.susp?'susp':'')+'" style="'+(m.susp?'opacity:.4':'')+'">'+
+      '<td><button onclick="toggleSusp('+i+')" style="background:none;border:none;cursor:pointer;font-size:15px;width:26px" title="'+(m.susp?'Reactivar':'Suspender')+'">'+(m.susp?'<span style="color:var(--red)">&#9679;</span>':'<span style="color:var(--teal)">&#9679;</span>')+'</button></td>'+
+      '<td style="font-weight:600;font-size:13px">'+m.name+'</td>'+
+      '<td style="font-family:monospace;font-size:11px;color:var(--teal)">'+m.dose+'</td>'+
+      '<td style="font-family:monospace;font-size:12px;font-weight:700;color:var(--text)">'+m.ml+'ml</td>'+
       '<td><span class="via v-'+m.via+'">'+m.via+'</span></td>'+
-      '<td style="color:var(--muted);font-size:12px">'+(m.freq===0?'Única':'x'+m.freq+'/d')+'</td>'+
-      '<td style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--muted)">'+(m.price>0?'$'+m.price.toLocaleString():'—')+'</td>'+
-      '<td><button onclick="removeMed('+i+')" class="btn btn-r btn-sm">x</button></td></tr>';
+      '<td style="color:var(--muted);font-size:11px">'+(m.freq===0?'DU':m.freq===1?'x1/d':m.freq===2?'x2/d':m.freq===3?'x3/d':'x4/d')+'</td>'+
+      '<td style="font-family:monospace;font-size:11px;color:var(--muted)">'+(m.price?'$'+m.price.toLocaleString():'—')+'</td>'+
+      '<td><button onclick="removeMed('+i+')" style="background:none;border:none;cursor:pointer;color:var(--dim);font-size:16px;padding:2px 4px" title="Eliminar">x</button></td>'+
+    '</tr>';
   }).join('');
-  c.innerHTML='<div class="ib ib-amber">🔴 = Suspendido · El auxiliar NO debe administrarlo</div>'+
-    '<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--teal)"></span>Protocolo de Medicamentos</div>'+
-    '<span style="font-size:11px;color:var(--muted)">'+active+' activos · <strong style="color:var(--teal)">$'+daily.toLocaleString()+'</strong>/día</span></div>'+
-    '<div style="overflow-x:auto"><table class="mtable"><thead><tr><th></th><th>Medicamento</th><th>Dosis</th><th>ML</th><th>Via</th><th>Freq</th><th>Precio</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+
+  c.innerHTML=
+    '<div class="ib ib-amber" style="font-size:11px">&#9679; Verde = activo &nbsp; &#9679; Rojo = suspendido (auxiliar NO administra)</div>'+
+    '<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--teal)"></span>Protocolo</div>'+
+    '<span style="font-size:11px;color:var(--muted)">'+active+' activos &nbsp;·&nbsp; <strong style="color:var(--teal)">$'+daily.toLocaleString()+'</strong>/día</span></div>'+
+    '<div style="overflow-x:auto"><table class="mtable"><thead><tr>'+
+    '<th></th><th>Medicamento</th><th>Dosis</th><th>ML</th><th>Via</th><th>Frec.</th><th>$/dosis</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
 function toggleSusp(i){var p=gp();p.medications[i].susp=!p.medications[i].susp;renderTabContent();toast(p.medications[i].susp?'Suspendido':'Reactivado');}
 function removeMed(i){var p=gp();if(!confirm('Eliminar '+p.medications[i].name+'?'))return;p.medications.splice(i,1);renderTabContent();toast('Eliminado');}
@@ -930,183 +937,281 @@ function rOrden(p,c,ha){
   ha.innerHTML='';
   var pad=function(n){return n<10?'0'+n:n;};
   var today=new Date();
-  var todayKey=today.getFullYear()+'-'+pad(today.getMonth()+1)+'-'+pad(today.getDate());
   var active=p.medications.filter(function(m){return !m.susp;});
   var admit=new Date(p.admitDate);
+  var dayNum=Math.max(1,Math.ceil((today-admit)/86400000));
 
-  // Build last 7 days (or since admission, whichever is shorter)
+  // 7 days ending today (or since admission)
   var days=[];
   for(var back=6;back>=0;back--){
-    var d=new Date(today.getTime()); d.setDate(today.getDate()-back);
-    if(d>=admit) days.push(d);
+    var d=new Date(today.getTime());
+    d.setDate(today.getDate()-back);
+    if(d>=new Date(admit.getFullYear(),admit.getMonth(),admit.getDate())) days.push(new Date(d));
   }
 
   var TURNOS=[
-    {k:'M',l:'07:00',full:'Mañana',h0:6,h1:12},
-    {k:'T',l:'13:00',full:'Tarde',h0:12,h1:18},
-    {k:'N',l:'19:00',full:'Noche',h0:18,h1:24},
-    {k:'A',l:'01:00',full:'Madrugada',h0:0,h1:6}
+    {k:'M',label:'Mañana',hora:'07:00',h0:6,h1:12,minFreq:1},
+    {k:'T',label:'Tarde', hora:'13:00',h0:12,h1:18,minFreq:2},
+    {k:'N',label:'Noche', hora:'19:00',h0:18,h1:24,minFreq:3},
+    {k:'A',label:'Madrug',hora:'01:00',h0:0,h1:6, minFreq:4}
   ];
 
-  // ── TOP: Checkboxes de HOY ──────────────────────────────
-  var hoySections='';
+  // ── Sección: Suministros de Hoy ─────────────────────
+  var todayKey=today.getFullYear()+'-'+pad(today.getMonth()+1)+'-'+pad(today.getDate());
+  var hoyHTML='';
   TURNOS.forEach(function(t){
     var meds=active.filter(function(m){
-      return (t.k==='M'&&m.freq>=1)||(t.k==='T'&&m.freq>=2)||(t.k==='N'&&m.freq>=3)||(t.k==='A'&&m.freq>=4)||(m.freq===0&&t.k==='M');
+      return m.freq>=t.minFreq||(m.freq===0&&t.k==='M');
     });
     if(!meds.length) return;
-    var key=p.id+'-HOY-'+t.k;
+    var key='hoy-'+p.id+'-'+t.k;
     if(!orderChecks[key]) orderChecks[key]={};
     var done=meds.filter(function(m){return orderChecks[key][m.id];}).length;
     var allDone=done===meds.length;
-    hoySections+='<div style="background:var(--s2);border:1px solid '+(allDone?'var(--teal)':'var(--border)')+';border-radius:var(--rs);overflow:hidden;margin-bottom:8px">'+
-      '<div style="padding:9px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:'+(allDone?'var(--teald)':'')+'">'+
-        '<span style="font-weight:700;font-size:13px">'+t.full+' <span style="font-size:11px;font-weight:400;color:var(--muted)">'+t.l+'</span></span>'+
-        '<span style="font-size:11px;color:'+(allDone?'var(--teal)':'var(--muted)')+'">'+done+'/'+meds.length+(allDone?' ✓':'')+'</span>'+
-      '</div>'+
-      meds.map(function(m){
-        var chk=!!orderChecks[key][m.id];
-        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid rgba(42,48,64,.3)">'+
-          '<button class="oi-check'+(chk?' done':'')+'" data-key="'+key+'" data-id="'+m.id+'" onclick="chkOrdBtn(this)">'+
-            (chk?'&#10003;':'')+
-          '</button>'+
-          '<div style="flex:1;font-size:13px;font-weight:500'+(chk?';opacity:.5;text-decoration:line-through':'')+'">'+m.name+'</div>'+
-          '<span style="font-family:monospace;font-size:12px;color:var(--teal)">'+m.ml+'ml</span>'+
-          '<span class="via v-'+m.via+'">'+m.via+'</span>'+
+    hoyHTML+=
+      '<div style="margin-bottom:10px;border:1px solid '+(allDone?'rgba(0,201,167,.5)':'var(--border)')+';border-radius:var(--rs);overflow:hidden">'+
+        '<div style="padding:8px 12px;background:'+(allDone?'rgba(0,201,167,.1)':'var(--s2)')+';display:flex;align-items:center;justify-content:space-between">'+
+          '<div style="font-weight:700;font-size:13px">'+t.label+' <span style="font-size:11px;font-weight:400;color:var(--muted)">'+t.hora+'</span></div>'+
+          '<span style="font-size:12px;font-weight:700;color:'+(allDone?'var(--teal)':'var(--muted)')+'">'+done+'/'+meds.length+(allDone?' ✓':'')+'</span>'+
+        '</div>'+
+        meds.map(function(m){
+          var chk=!!orderChecks[key][m.id];
+          return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid rgba(42,48,64,.3);background:'+(chk?'rgba(0,201,167,.05)':'')+'">'+
+            '<button data-key="'+key+'" data-mid="'+m.id+'" onclick="chkOrd(this)" '+
+              'style="width:26px;height:26px;border-radius:6px;border:2px solid '+(chk?'var(--teal)':'var(--border)')+';background:'+(chk?'var(--teal)':'transparent')+';color:'+(chk?'#0f1117':'transparent')+';font-size:14px;font-weight:900;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s">'+
+              (chk?'&#10003;':'')+
+            '</button>'+
+            '<div style="flex:1;min-width:0">'+
+              '<div style="font-size:13px;font-weight:600;'+(chk?'text-decoration:line-through;color:var(--muted)':'')+'">'+m.name+'</div>'+
+              '<div style="font-size:11px;color:var(--muted);margin-top:1px">'+m.dose+'</div>'+
+            '</div>'+
+            '<span style="font-family:monospace;font-size:13px;font-weight:700;color:var(--teal)">'+m.ml+'ml</span>'+
+            '<span class="via v-'+m.via+'" style="flex-shrink:0">'+m.via+'</span>'+
           '</div>';
-      }).join('')+
+        }).join('')+
       '</div>';
   });
 
-  // ── BOTTOM: Grid semanal ────────────────────────────────
-  var gridHead='<div style="overflow-x:auto;margin-top:4px">'+
-    '<table style="width:100%;border-collapse:collapse;min-width:'+(180+days.length*72)+'px">'+
-    '<thead>'+
-    '<tr>'+
-      '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--dim);font-weight:700;letter-spacing:.8px;text-transform:uppercase;border-bottom:1px solid var(--border);position:sticky;left:0;background:var(--surface);z-index:2;min-width:130px">Medicamento</th>'+
-      days.map(function(d){
-        var isT=d.toDateString()===today.toDateString();
-        return '<th colspan="4" style="padding:5px 4px;text-align:center;font-size:11px;font-weight:700;border-bottom:1px solid var(--border);border-left:1px solid var(--border);color:'+(isT?'var(--teal)':'var(--muted)')+';background:'+(isT?'rgba(0,201,167,.07)':'')+'">'+
-          pad(d.getDate())+'/'+pad(d.getMonth()+1)+
-          (isT?'<br><span style="font-size:8px;letter-spacing:.5px">HOY</span>':'')+
-        '</th>';
-      }).join('')+
-    '</tr>'+
-    '<tr>'+
-      '<th style="position:sticky;left:0;background:var(--surface);z-index:2;border-bottom:2px solid var(--border)"></th>'+
-      days.map(function(d){
-        var isT=d.toDateString()===today.toDateString();
-        return TURNOS.map(function(t){
-          return '<th style="padding:3px 2px;text-align:center;font-size:9px;color:var(--dim);border-bottom:2px solid var(--border);border-left:1px solid rgba(42,48,64,.2);width:18px;background:'+(isT?'rgba(0,201,167,.04)':'')+'">'+t.k+'</th>';
-        }).join('');
-      }).join('')+
-    '</tr></thead>';
+  // ── Sección: Tabla semanal ───────────────────────────
+  var hdrDias=days.map(function(d){
+    var isT=d.toDateString()===today.toDateString();
+    return '<th colspan="4" style="padding:4px 2px;text-align:center;font-size:10px;font-weight:700;border-bottom:1px solid var(--border);border-left:1px solid var(--border);color:'+(isT?'var(--teal)':'var(--muted)')+';background:'+(isT?'rgba(0,201,167,.08)':'')+'">'+
+      pad(d.getDate())+'/'+pad(d.getMonth()+1)+(isT?'<br><span style="font-size:8px">HOY</span>':'')+
+    '</th>';
+  }).join('');
 
-  var gridBody='<tbody>'+active.map(function(m){
-    var cells='<td style="padding:5px 10px;font-size:12px;font-weight:500;position:sticky;left:0;background:var(--surface);z-index:1;white-space:nowrap;border-bottom:1px solid rgba(42,48,64,.2)">'+
-      m.name+' <span style="color:var(--teal);font-family:monospace;font-size:10px">'+m.ml+'ml</span></td>';
-    days.forEach(function(d){
+  var hdrTurnos=days.map(function(d){
+    var isT=d.toDateString()===today.toDateString();
+    return TURNOS.map(function(t){
+      return '<th style="padding:2px 0;text-align:center;font-size:8px;letter-spacing:.3px;color:var(--dim);border-bottom:2px solid var(--border);border-left:1px solid rgba(42,48,64,.2);width:18px;background:'+(isT?'rgba(0,201,167,.04)':'')+'">'+t.k+'</th>';
+    }).join('');
+  }).join('');
+
+  var bodyRows=active.map(function(m){
+    var tdNombre='<td style="padding:5px 10px;font-size:12px;font-weight:600;position:sticky;left:0;background:var(--surface);z-index:1;white-space:nowrap;border-bottom:1px solid rgba(42,48,64,.2);max-width:150px;overflow:hidden;text-overflow:ellipsis">'+
+      m.name+'<span style="color:var(--teal);font-family:monospace;font-size:10px;margin-left:5px;font-weight:400">'+m.ml+'ml</span></td>';
+    var tdCeldas=days.map(function(d){
       var dk=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
       var isT=d.toDateString()===today.toDateString();
-      var bg=isT?'background:rgba(0,201,167,.04);':'';
-      TURNOS.forEach(function(t){
-        var freqOk=(t.k==='M'&&m.freq>=1)||(t.k==='T'&&m.freq>=2)||(t.k==='N'&&m.freq>=3)||(t.k==='A'&&m.freq>=4)||(m.freq===0&&t.k==='M');
-        var bl='border-bottom:1px solid rgba(42,48,64,.2);border-left:1px solid rgba(42,48,64,.15);text-align:center;';
-        if(!freqOk){
-          cells+='<td style="'+bg+bl+'color:var(--dim);font-size:9px"> </td>';
-        } else {
-          // Check admins
-          var admins=p.admins[m.id]||[];
-          var done=admins.some(function(ts){
-            var dt=new Date(ts);
-            var adk=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
-            var h=dt.getHours();
-            return adk===dk&&h>=t.h0&&(t.k==='N'?h<24:h<t.h1);
-          });
-          // Also check orderChecks for today
-          if(isT){
-            var key=p.id+'-HOY-'+t.k;
-            if(orderChecks[key]&&orderChecks[key][m.id]) done=true;
-          }
-          if(done){
-            cells+='<td style="'+bg+bl+'background:rgba(0,201,167,.22);vertical-align:middle;padding:0"><div style="color:var(--teal);font-size:15px;font-weight:900;line-height:1;text-align:center">&#10003;</div></td>';
-          } else {
-            cells+='<td style="'+bg+bl+'color:var(--border);font-size:13px;padding:0;text-align:center">&#183;</td>';
-          }
+      return TURNOS.map(function(t){
+        var applies=m.freq>=t.minFreq||(m.freq===0&&t.k==='M');
+        var bg=isT?'rgba(0,201,167,.04)':'';
+        var bl='border-left:1px solid rgba(42,48,64,.15);border-bottom:1px solid rgba(42,48,64,.2);';
+        if(!applies){
+          return '<td style="background:'+bg+';'+bl+'"></td>';
         }
-      });
-    });
-    return '<tr>'+cells+'</tr>';
-  }).join('')+'</tbody>';
+        // Check if administered
+        var done=false;
+        var admins=p.admins[m.id]||[];
+        for(var ai=0;ai<admins.length;ai++){
+          var dt=new Date(admins[ai]);
+          var adk=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
+          var h=dt.getHours();
+          if(adk===dk&&h>=t.h0&&h<(t.h1===24?25:t.h1)){done=true;break;}
+        }
+        // Today: also check orderChecks
+        if(isT){
+          var hkey='hoy-'+p.id+'-'+t.k;
+          if(orderChecks[hkey]&&orderChecks[hkey][m.id]) done=true;
+        }
+        if(done){
+          return '<td style="background:rgba(0,201,167,.2);'+bl+'text-align:center;padding:0;vertical-align:middle">'+
+            '<span style="color:var(--teal);font-size:14px;font-weight:900;line-height:1;display:block;text-align:center">&#10003;</span></td>';
+        } else {
+          return '<td style="background:'+bg+';'+bl+'text-align:center;color:rgba(42,48,64,.8);font-size:14px;padding:0"> </td>';
+        }
+      }).join('');
+    }).join('');
+    return '<tr>'+tdNombre+tdCeldas+'</tr>';
+  }).join('');
 
-  var dayLabel=Math.max(1,Math.ceil((today-admit)/86400000));
+  var semanaHTML=
+    '<div style="overflow-x:auto">'+
+    '<table style="width:100%;border-collapse:collapse;min-width:'+(160+days.length*74)+'px">'+
+    '<thead>'+
+    '<tr>'+
+      '<th style="padding:6px 10px;text-align:left;font-size:10px;color:var(--dim);font-weight:700;letter-spacing:.8px;text-transform:uppercase;border-bottom:1px solid var(--border);position:sticky;left:0;background:var(--surface);z-index:2;min-width:130px">Medicamento</th>'+
+      hdrDias+
+    '</tr>'+
+    '<tr><th style="position:sticky;left:0;background:var(--surface);z-index:2;border-bottom:2px solid var(--border)"></th>'+hdrTurnos+'</tr>'+
+    '</thead><tbody>'+bodyRows+'</tbody></table></div>';
 
   c.innerHTML=
-    '<div style="padding:8px 12px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'+
-      '<div><span style="font-weight:700">'+p.emoji+' '+p.name+'</span><span style="font-size:11px;color:var(--muted);margin-left:8px">Dia '+dayLabel+' · '+p.weight+'kg</span></div>'+
-      '<span style="font-family:monospace;font-size:11px;color:var(--muted)">'+pad(today.getDate())+'/'+pad(today.getMonth()+1)+'/'+today.getFullYear()+'</span>'+
+    // Header info bar
+    '<div style="padding:8px 12px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">'+
+      '<span style="font-weight:700">'+p.emoji+' '+p.name+'</span>'+
+      '<span style="font-size:11px;color:var(--muted)">Día '+dayNum+' hospitalizado &nbsp;·&nbsp; '+p.weight+'kg &nbsp;·&nbsp; '+pad(today.getDate())+'/'+pad(today.getMonth()+1)+'/'+today.getFullYear()+'</span>'+
     '</div>'+
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px">Suministros de Hoy</div>'+
-    hoySections+
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:14px 0 8px">Control Semanal</div>'+
-    '<div style="font-size:10px;color:var(--dim);margin-bottom:8px">M=Mañana · T=Tarde · N=Noche · A=Madrugada &nbsp;|&nbsp; <span style="color:var(--teal);font-weight:700">✓</span> = suministrado</div>'+
-    gridHead+gridBody+'</table></div>';
+    // Today section
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">Suministros de Hoy</div>'+
+    hoyHTML+
+    // Weekly grid
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:16px 0 6px">Control Semanal &nbsp;<span style="font-size:9px;font-weight:400;color:var(--dim)">(M=Mañana T=Tarde N=Noche A=Madrugada)</span></div>'+
+    '<div class="sec" style="overflow:hidden">'+semanaHTML+'</div>';
 }
 
+function chkOrd(btn){
+  var key=btn.dataset.key;
+  var mid=parseInt(btn.dataset.mid);
+  if(!orderChecks[key]) orderChecks[key]={};
+  var newVal=!orderChecks[key][mid];
+  orderChecks[key][mid]=newVal;
+  // Persist to admins
+  var p=gp();
+  if(newVal){
+    if(!p.admins[mid]) p.admins[mid]=[];
+    p.admins[mid].push(new Date().toISOString());
+  }
+  // Re-render just the orden tab
+  rOrden(p,document.getElementById('mainContent'),document.getElementById('hdrActions'));
+}
 
 /* -- MONITOREO -- */
 function rMon(p,c,ha){
-  ha.innerHTML='<button class="btn btn-p btn-sm" onclick="showMonForm()">+ Nuevo Reporte</button>';
-  var last=p.monitoring[p.monitoring.length-1];
-  var vitals=last?'<div class="vgrid">'+[['Temp.','temp','°C'],['FC','rpc','bpm'],['TLLC','tllc','s'],['Peso','peso','kg'],['Mucosas','mucosas',''],['Hidrat.','hidratacion','']].map(function(v){var val=last[v[1]];return '<div class="vbox"><div class="vlabel">'+v[0]+'</div><div class="vval '+(val?'ok':'empty')+'">'+(val||'—')+'</div><div class="vunit">'+v[2]+'</div></div>';}).join('')+'</div>':'<div style="color:var(--dim);font-size:13px;padding:16px;text-align:center">Sin reportes aún</div>';
+  ha.innerHTML='<button class="btn btn-p btn-sm" onclick="showMonForm()">+ Reporte</button>';
+  var last=p.monitoring.length?p.monitoring[p.monitoring.length-1]:null;
+
+  // Compact vitals row
+  var VITALS=[
+    {k:'temp',l:'Temp.',u:'°C',lo:37.5,hi:39.2},
+    {k:'rpc', l:'FC',  u:'bpm',lo:60,hi:160},
+    {k:'tllc',l:'TLLC',u:'s', lo:1,hi:2},
+    {k:'peso',l:'Peso', u:'kg',lo:null,hi:null},
+    {k:'mucosas',l:'Mucosas',u:'',lo:null,hi:null},
+    {k:'hidratacion',l:'Hidrat.',u:'',lo:null,hi:null}
+  ];
+
+  var vRow=last?'<div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px">'+
+    VITALS.map(function(v){
+      var val=last[v.k];
+      var num=parseFloat(val);
+      var color='var(--muted)';
+      if(val&&v.lo&&v.hi){
+        if(num<v.lo||num>v.hi) color='var(--amber)'; else color='var(--teal)';
+      } else if(val) color='var(--text)';
+      return '<div style="flex:1;min-width:70px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;text-align:center">'+
+        '<div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);font-weight:700">'+v.l+'</div>'+
+        '<div style="font-size:16px;font-weight:700;color:'+color+';margin-top:2px;line-height:1">'+(val||'—')+'</div>'+
+        (v.u&&val?'<div style="font-size:9px;color:var(--dim)">'+v.u+'</div>':'')+
+      '</div>';
+    }).join('')+'</div>'
+  :'<div style="padding:14px;text-align:center;color:var(--dim);font-size:13px">Sin reportes aún</div>';
+
+  // Behaviour row
+  var bRow=last?'<div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 12px 10px">'+
+    [['orino','Orinó'],['defeco','Defecó'],['vomito','Vomitó'],['comio','Comió'],['agua','Agua']].map(function(item){
+      var v=last[item[0]];
+      return '<span style="font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;background:'+(v?'rgba(0,201,167,.15)':'rgba(255,77,106,.1)')+';color:'+(v?'var(--teal)':'var(--muted)')+'">'+
+        (v?'✓ ':'')+item[1]+'</span>';
+    }).join('')+'</div>':'' ;
+
+  // History table
+  var ROWS=[{k:'temp',l:'Temp.'},{k:'rpc',l:'FC'},{k:'tllc',l:'TLLC'},{k:'mucosas',l:'Mucosas'},{k:'hidratacion',l:'Hidrat.'},{k:'peso',l:'Peso'},{k:'orino',l:'Orinó'},{k:'defeco',l:'Defecó'},{k:'vomito',l:'Vomitó'},{k:'comio',l:'Comió'},{k:'agua',l:'Agua'}];
   var hist='';
-  if(p.monitoring.length>0){
-    var ROWS=[{k:'orino',l:'Orinó'},{k:'defeco',l:'Defecó'},{k:'vomito',l:'Vomitó'},{k:'comio',l:'Comió'},{k:'agua',l:'Agua'},{k:'temp',l:'Temp.'},{k:'tllc',l:'TLLC'},{k:'rpc',l:'FC'},{k:'mucosas',l:'Mucosas'}];
-    hist='<div class="sec" style="margin-top:12px"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--blue)"></span>Historial</div></div>'+
-      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:400px"><thead><tr>'+
-      '<th style="padding:7px 12px;text-align:left;font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;border-bottom:1px solid var(--border)">Param.</th>'+
-      p.monitoring.map(function(m){return '<th style="padding:7px 10px;text-align:center;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border)">'+m.date+'<br><span style="font-size:9px;color:var(--dim)">'+m.hour+'</span></th>';}).join('')+
-      '</tr></thead><tbody>'+ROWS.map(function(row){
-        return '<tr><td style="padding:6px 12px;font-size:12px;color:var(--muted);border-bottom:1px solid rgba(42,48,64,.3)">'+row.l+'</td>'+
-          p.monitoring.map(function(m){var v=m[row.k];var isb=typeof v==='boolean';
-            return '<td style="padding:6px 10px;text-align:center;border-bottom:1px solid rgba(42,48,64,.3);font-family:JetBrains Mono,monospace;font-size:12px">'+(isb?(v?'<span style="color:var(--teal)">✓</span>':'<span style="color:var(--red)">✗</span>'):(v||'<span style="color:var(--dim)">—</span>'))+'</td>';}).join('')+'</tr>';
-      }).join('')+'</tbody></table></div></div>';
+  if(p.monitoring.length>1){
+    hist='<div class="sec" style="margin-top:10px"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--blue)"></span>Historial</div></div>'+
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:320px">'+
+    '<thead><tr><th style="padding:5px 10px;text-align:left;color:var(--dim);font-weight:700;text-transform:uppercase;font-size:9px;border-bottom:1px solid var(--border);position:sticky;left:0;background:var(--surface)">Param.</th>'+
+    p.monitoring.slice().reverse().map(function(m){
+      return '<th style="padding:5px 8px;text-align:center;color:var(--muted);font-size:10px;border-bottom:1px solid var(--border);white-space:nowrap">'+m.date+'<br><span style="font-size:9px;color:var(--dim)">'+m.hour+'</span></th>';
+    }).join('')+'</tr></thead><tbody>'+
+    ROWS.map(function(row){
+      return '<tr><td style="padding:4px 10px;color:var(--muted);font-size:11px;border-bottom:1px solid rgba(42,48,64,.2);position:sticky;left:0;background:var(--surface);font-weight:600">'+row.l+'</td>'+
+        p.monitoring.slice().reverse().map(function(m){
+          var v=m[row.k];var isb=typeof v==='boolean';
+          return '<td style="padding:4px 8px;text-align:center;border-bottom:1px solid rgba(42,48,64,.2);font-family:monospace">'+
+            (isb?(v?'<span style="color:var(--teal);font-weight:700">&#10003;</span>':'<span style="color:var(--red)">&#215;</span>'):(v||'<span style="color:var(--dim)">—</span>'))+
+          '</td>';
+        }).join('')+'</tr>';
+    }).join('')+'</tbody></table></div></div>';
   }
-  c.innerHTML='<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--teal)"></span>Signos Vitales Recientes</div>'+(last?'<span style="font-size:10px;color:var(--dim);font-family:JetBrains Mono,monospace">'+last.date+' '+last.hour+'</span>':'')+'</div><div class="sec-body">'+vitals+'</div></div>'+hist+'<div id="monForm" style="display:none;margin-top:12px"></div>';
+
+  c.innerHTML=
+    (last?'<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--teal)"></span>Último Reporte</div>'+
+    '<span style="font-size:10px;color:var(--dim);font-family:monospace">'+last.date+' '+last.hour+'</span></div>'+
+    vRow+bRow+'</div>':'<div class="ib ib-amber">Sin reportes — crea el primero con el botón "+ Reporte"</div>')+
+    hist+
+    '<div id="monForm" style="display:none;margin-top:10px"></div>';
 }
+
 function showMonForm(){
-  var form=document.getElementById('monForm');if(!form)return;monSel={};form.style.display='block';
+  var form=document.getElementById('monForm');if(!form)return;
+  monSel={};form.style.display='block';
   var now=new Date(),pad=function(n){return n<10?'0'+n:n;};
   form.innerHTML='<div class="sec"><div class="sec-hd"><div class="sec-title"><span class="dot" style="background:var(--amber)"></span>Nuevo Reporte</div></div><div class="sec-body">'+
-    '<div class="frow"><div class="field"><div class="fl">Fecha</div><input class="fi" id="mon-date" type="date" value="'+now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'"></div>'+
-    '<div class="field"><div class="fl">Hora</div><input class="fi" id="mon-hour" type="time" value="'+pad(now.getHours())+':'+pad(now.getMinutes())+'"></div></div>'+
+    '<div class="frow">'+
+      '<div class="field"><div class="fl">Fecha</div><input class="fi" id="mon-date" type="date" value="'+now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'"></div>'+
+      '<div class="field"><div class="fl">Hora</div><input class="fi" id="mon-hour" type="time" value="'+pad(now.getHours())+':'+pad(now.getMinutes())+'"></div>'+
+    '</div>'+
     '<div class="fl" style="margin-bottom:8px">Comportamiento</div>'+
-    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
-    ['orino,Orinó','defeco,Defecó','vomito,Vomitó','comio,Comió','agua,Agua'].map(function(it){var pt=it.split(',');
-      return '<div><div class="fl">'+pt[1]+'</div><div style="display:flex;gap:4px"><button class="btn btn-g btn-sm" id="mon-'+pt[0]+'-s" onclick="setMon(\''+pt[0]+'\',\'yes\',this)">Sí</button><button class="btn btn-g btn-sm" id="mon-'+pt[0]+'-n" onclick="setMon(\''+pt[0]+'\',\'no\',this)">No</button></div></div>';}).join('')+'</div>'+
-    '<div class="fl" style="margin-bottom:8px">Signos Vitales</div>'+
-    '<div class="frow3"><div class="field"><div class="fl">Temp °C</div><input class="fi" id="mon-temp" type="number" step="0.1" placeholder="38.5"></div>'+
-    '<div class="field"><div class="fl">TLLC (s)</div><input class="fi" id="mon-tllc" placeholder="2"></div>'+
-    '<div class="field"><div class="fl">FC (bpm)</div><input class="fi" id="mon-rpc" placeholder="80"></div></div>'+
-    '<div class="frow"><div class="field"><div class="fl">Mucosas</div><select class="fi" id="mon-muc"><option>Rosa</option><option>Pálidas</option><option>Cianóticas</option><option>Ictéricas</option><option>Hiperémicas</option></select></div>'+
-    '<div class="field"><div class="fl">Hidratación</div><select class="fi" id="mon-hid"><option>Normal</option><option>Leve deshidratación</option><option>Moderada</option><option>Severa</option></select></div></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+
+    [['orino','Orinó'],['defeco','Defecó'],['vomito','Vomitó'],['comio','Comió'],['agua','Agua']].map(function(item){
+      return '<div><div class="fl">'+item[1]+'</div>'+
+        '<div style="display:flex;gap:4px">'+
+          '<button class="btn btn-g btn-sm" id="mon-'+item[0]+'-s" onclick="setMon(\''+item[0]+'\',\'yes\',this)">Sí</button>'+
+          '<button class="btn btn-g btn-sm" id="mon-'+item[0]+'-n" onclick="setMon(\''+item[0]+'\',\'no\',this)">No</button>'+
+        '</div></div>';
+    }).join('')+
+    '</div>'+
+    '<div class="frow3">'+
+      '<div class="field"><div class="fl">Temp °C</div><input class="fi" id="mon-temp" type="number" step="0.1" placeholder="38.5"></div>'+
+      '<div class="field"><div class="fl">TLLC (s)</div><input class="fi" id="mon-tllc" placeholder="2"></div>'+
+      '<div class="field"><div class="fl">FC bpm</div><input class="fi" id="mon-rpc" placeholder="80"></div>'+
+    '</div>'+
+    '<div class="frow">'+
+      '<div class="field"><div class="fl">Mucosas</div>'+
+        '<select class="fi" id="mon-muc"><option>Rosa</option><option>Pálidas</option><option>Cianóticas</option><option>Ictéricas</option><option>Hiperémicas</option></select>'+
+      '</div>'+
+      '<div class="field"><div class="fl">Hidratación</div>'+
+        '<select class="fi" id="mon-hid"><option>Normal</option><option>Leve deshidratación</option><option>Moderada</option><option>Severa</option></select>'+
+      '</div>'+
+    '</div>'+
     '<div class="field"><div class="fl">Peso (kg)</div><input class="fi" id="mon-peso" type="number" step="0.01" placeholder="0.0" style="max-width:120px"></div>'+
-    '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-p" onclick="saveMon()">Guardar</button><button class="btn btn-g" onclick="document.getElementById(\'monForm\').style.display=\'none\'">Cancelar</button></div>'+
+    '<div style="display:flex;gap:8px;margin-top:4px">'+
+      '<button class="btn btn-p" onclick="saveMon()">Guardar</button>'+
+      '<button class="btn btn-g" onclick="document.getElementById(\'monForm\').style.display=\'none\'">Cancelar</button>'+
+    '</div>'+
     '</div></div>';
 }
 function setMon(k,v,btn){
   monSel[k]=v;
-  ['s','n'].forEach(function(s){var el=document.getElementById('mon-'+k+'-'+s);if(el){el.classList.remove('btn-p');el.classList.add('btn-g');}});
+  ['s','n'].forEach(function(sx){var el=document.getElementById('mon-'+k+'-'+sx);if(el){el.classList.remove('btn-p');el.classList.add('btn-g');}});
   btn.classList.remove('btn-g');btn.classList.add('btn-p');
 }
 function saveMon(){
-  var p=gp();
-  p.monitoring.push({date:document.getElementById('mon-date').value,hour:document.getElementById('mon-hour').value,
-    orino:monSel['orino']==='yes',defeco:monSel['defeco']==='yes',vomito:monSel['vomito']==='yes',
-    comio:monSel['comio']==='yes',agua:monSel['agua']==='yes',
-    temp:document.getElementById('mon-temp').value,tllc:document.getElementById('mon-tllc').value,
-    rpc:document.getElementById('mon-rpc').value,mucosas:document.getElementById('mon-muc').value,
-    hidratacion:document.getElementById('mon-hid').value,peso:document.getElementById('mon-peso').value});
+  var p=gp(),pad=function(n){return n<10?'0'+n:n;};
+  p.monitoring.push({
+    date:document.getElementById('mon-date').value,
+    hour:document.getElementById('mon-hour').value,
+    orino:monSel['orino']==='yes',defeco:monSel['defeco']==='yes',
+    vomito:monSel['vomito']==='yes',comio:monSel['comio']==='yes',agua:monSel['agua']==='yes',
+    temp:document.getElementById('mon-temp').value,
+    tllc:document.getElementById('mon-tllc').value,
+    rpc:document.getElementById('mon-rpc').value,
+    mucosas:document.getElementById('mon-muc').value,
+    hidratacion:document.getElementById('mon-hid').value,
+    peso:document.getElementById('mon-peso').value
+  });
   monSel={};renderTabContent();toast('Reporte guardado');
 }
 
