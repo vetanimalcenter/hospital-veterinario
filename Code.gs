@@ -4,6 +4,34 @@
 
 var SPREADSHEET_ID = '11Y9nusH47nWcW1ONWl-N0OKP6f0Gsj9NIGYJOhNnsKM';
 
+// ── Ejecutar UNA SOLA VEZ desde el editor: Run → setup ────
+function setup() {
+  var wb = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var SHEETS = {
+    'Pacientes':    ['id','name','owner','doc','phone','species','breed','sex','weight','age','status','vet','vsId','admitDate','dischargeDate','reason','diagnosis','emoji','dayRate'],
+    'Medicamentos': ['id','patientId','name','dose','ml','via','freq','price','susp','vsId'],
+    'Dosis':        ['id','patientId','medId','timestamp'],
+    'Monitoreo':    ['id','patientId','date','hour','data'],
+    'Eventos':      ['id','patientId','time','type','text','by'],
+    'Labs':         ['id','patientId','labDate','paramKey','value']
+  };
+  Object.keys(SHEETS).forEach(function(name) {
+    var sh = wb.getSheetByName(name);
+    if (!sh) sh = wb.insertSheet(name);
+    var headers = SHEETS[name];
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.getRange(1, 1, 1, headers.length)
+      .setBackground('#1a1f2e')
+      .setFontColor('#00c9a7')
+      .setFontWeight('bold');
+    sh.setFrozenRows(1);
+  });
+  // Eliminar la hoja vacía por defecto si existe
+  var def = wb.getSheetByName('Hoja 1') || wb.getSheetByName('Sheet1');
+  if (def && wb.getSheets().length > 1) wb.deleteSheet(def);
+  Logger.log('✅ Setup completo — 6 hojas creadas');
+}
+
 function doGet(e) {
   var params = {};
   try { params = JSON.parse(decodeURIComponent(e.parameter.d || '{}')); } catch(ex) {}
