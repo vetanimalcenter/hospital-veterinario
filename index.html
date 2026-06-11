@@ -294,7 +294,15 @@ select.fi{cursor:pointer}
     <div class="modal-hd"><div class="modal-title">⚙️ Configuración Vetesoft</div><button class="mcl" onclick="closeModal('modalConfig')">×</button></div>
     <div class="modal-body" style="padding:0">
       <div class="cfg-section">
-        <div class="cfg-title">Conexión API</div>
+        <div class="cfg-title">Base de datos (Google Sheets)</div>
+        <div class="field"><div class="fl">URL del Apps Script</div>
+          <input class="fi" id="cfg-api-url" placeholder="https://script.google.com/macros/s/…/exec" style="font-size:11px;font-family:'JetBrains Mono',monospace">
+        </div>
+        <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="testApi()">Probar y recargar datos</button>
+        <div id="apiStatus" style="font-size:11px;margin-top:6px;color:var(--muted)"></div>
+      </div>
+      <div class="cfg-section">
+        <div class="cfg-title">Conexión Vetesoft</div>
         <div id="vsStatus" class="vs-status disconnected">● Sin conectar</div>
         <div class="field" style="margin-top:10px"><div class="fl">Auth Token</div>
           <input class="fi" id="cfg-token" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="font-family:'JetBrains Mono',monospace;font-size:12px">
@@ -492,28 +500,8 @@ var VS_BASE='https://developers.vetesoft.org';
 var vsProducts=[],vsCategories=[],vsPatients=[],vsIndex=[];
 var searchTimer=null;
 var MED_CATALOG=[{"n": "Dipirona", "dose": "14MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 14, "conc": 500}, {"n": "Dexametasona", "dose": "0.5MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 0.5, "conc": 4}, {"n": "Hioscina", "dose": "0.5MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 0.5, "conc": 20}, {"n": "Ascorvex", "dose": "25MG/KG/24H", "via": "IV", "freq": 1, "mgkg": 25, "conc": 200}, {"n": "Tramadol", "dose": "2MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 2, "conc": 50}, {"n": "Meloxicam", "dose": "0.1MG/KG/24H", "via": "IV", "freq": 1, "mgkg": 0.1, "conc": 5}, {"n": "Fluimucil", "dose": "15MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 15, "conc": 300}, {"n": "Cerenia", "dose": "0.1ML/KG/DU", "via": "IV", "freq": 0, "mlkg": 0.1}, {"n": "Enrofloxacina", "dose": "5MG/KG/24H", "via": "IV", "freq": 1, "mgkg": 5, "conc": 50}, {"n": "Quercetol", "dose": "20MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 20, "conc": 200}, {"n": "Unitral", "dose": "0.05ML/KG/24H", "via": "SC", "freq": 1, "mlkg": 0.05}, {"n": "Metronidazol", "dose": "10MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 10, "conc": 5}, {"n": "Oxitetraciclina", "dose": "10MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 10, "conc": 50}, {"n": "Omeprazol", "dose": "0.7MG/KG/24H", "via": "IV", "freq": 1, "mgkg": 0.7, "conc": 40}, {"n": "Metoclopramida", "dose": "0.5MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 0.5, "conc": 5}, {"n": "Aminotonic", "dose": "2ML/KG/24H", "via": "IV", "freq": 1, "mlkg": 2}, {"n": "Clindamicina", "dose": "11MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 11, "conc": 150}, {"n": "Alervec", "dose": "2MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 2, "conc": 10}, {"n": "Hemolitan", "dose": "0.1ML/KG/12H", "via": "PO", "freq": 2, "mlkg": 0.1}, {"n": "Engystol", "dose": "0.5ML/KG/12H", "via": "IV", "freq": 2, "mlkg": 0.5}, {"n": "Aciflux", "dose": "1.5MG/KG/12H", "via": "PO", "freq": 2, "mgkg": 1.5, "conc": 30}, {"n": "Ampicilina", "dose": "30MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 30, "conc": 1000}, {"n": "Amp/Sulbactam", "dose": "30MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 30, "conc": 1000}, {"n": "Furosemida", "dose": "1MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 1, "conc": 50}, {"n": "Nebulizaciones", "dose": "CAD 12HR", "via": "NEB", "freq": 2}, {"n": "Meropenem", "dose": "10MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 10, "conc": 500}, {"n": "Keppra", "dose": "20MG/KG/12H", "via": "PO", "freq": 2, "mgkg": 20, "conc": 100}, {"n": "Traumeel", "dose": "0.5ML/KG/12H", "via": "IV", "freq": 2, "mlkg": 0.5}, {"n": "Eritropoyetina", "dose": "50UI/KG/72H", "via": "SC", "freq": 0}, {"n": "Pregabalina 75MG", "dose": "3MG/KG/12H", "via": "PO", "freq": 2, "mgkg": 3}, {"n": "Doxiciclina 50MG", "dose": "5MG/KG/24H", "via": "PO", "freq": 1, "mgkg": 5}, {"n": "Ceftriaxona", "dose": "30MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 30, "conc": 1000}, {"n": "Complejo B", "dose": "0.3ML/KG/24H", "via": "IV", "freq": 1, "mlkg": 0.3}, {"n": "Manitol", "dose": "1GR/KG/8H", "via": "IV", "freq": 3, "mgkg": 1000, "conc": 200}, {"n": "Imizol", "dose": "2.5MG/KG/DU", "via": "SC", "freq": 0, "mgkg": 2.5, "conc": 85.68}, {"n": "Lactulosa", "dose": "0.5ML/KG/12H", "via": "PO", "freq": 2, "mlkg": 0.5}, {"n": "Acido Tranexamico", "dose": "10MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 10, "conc": 100}, {"n": "Ondansetron", "dose": "0.35MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 0.35, "conc": 2}, {"n": "Cefalexina", "dose": "22MG/KG/12H", "via": "PO", "freq": 2, "mgkg": 22, "conc": 250}, {"n": "Marboquin", "dose": "2.5MG/KG/24H", "via": "SC", "freq": 1, "mgkg": 2.5, "conc": 100}, {"n": "Organew", "dose": "2GR/24H", "via": "PO", "freq": 1}, {"n": "Terramicina Unguento", "dose": "CAD 12HR", "via": "TOPIC", "freq": 2}, {"n": "Limpieza", "dose": "CAD 12HR", "via": "TOPIC", "freq": 2}, {"n": "Vitavet-C", "dose": "0.1ML/KG/12H", "via": "PO", "freq": 2, "mlkg": 0.1}, {"n": "CBD", "dose": "CAD 12HR", "via": "PO", "freq": 2}, {"n": "Flamosin", "dose": "0.2ML/KG/12H", "via": "PO", "freq": 2, "mlkg": 0.2}, {"n": "Atropina", "dose": "0.022ML/KG/DU", "via": "IV", "freq": 0, "mlkg": 0.022}, {"n": "Nutrigel", "dose": "0.1ML/KG/8H", "via": "PO", "freq": 3, "mlkg": 0.1}, {"n": "Ursacol 300MG", "dose": "15MG/KG/24H", "via": "PO", "freq": 1, "mgkg": 15}, {"n": "Glicopan", "dose": "0.1ML/KG/12H", "via": "PO", "freq": 2, "mlkg": 0.1}, {"n": "Medulla Ossis", "dose": "1AMP/72H", "via": "IV", "freq": 0}, {"n": "Ion-K", "dose": "CAD 12HR", "via": "PO", "freq": 2}, {"n": "Bismopet", "dose": "CAD 12HR", "via": "PO", "freq": 2}, {"n": "Carbon Activado", "dose": "DU", "via": "PO", "freq": 0}, {"n": "Penthal", "dose": "DU", "via": "IV", "freq": 0}, {"n": "Doxiciclina 20MG", "dose": "5MG/KG/24H", "via": "PO", "freq": 1, "mgkg": 5}, {"n": "Simprica 5-10KG", "dose": "DU", "via": "PO", "freq": 0}, {"n": "Opter", "dose": "CAD 12HR", "via": "OTICA", "freq": 2}, {"n": "Aguardiente", "dose": "0.3ML/KG/DU", "via": "IV", "freq": 0, "mlkg": 0.3}, {"n": "Trihepat", "dose": "CAD 12HR", "via": "PO", "freq": 2}, {"n": "Dipirona+Hioscina", "dose": "14MG/KG/12H", "via": "IV", "freq": 2, "mgkg": 14, "conc": 500}];
-var patients=[
-  {id:1,name:'GOQUI',owner:'Sandra Milena Acuña',species:'Canino',breed:'Cocker',sex:'Macho',weight:8.6,age:'4 meses',status:'hospitalizado',vet:'Dr. García',vsId:'',admitDate:'2026-04-05',reason:'Lo atropelló una moto, tratamiento de hemotropicos',diagnosis:'Trauma por atropello + hemoparásitos',emoji:'🐕',
-   medications:[
-     {id:1,name:'Dexametasona',dose:'0.5MG/KG/12HR',ml:1,via:'IV',freq:2,price:3500,susp:false,vsId:''},
-     {id:2,name:'Dipirona',dose:'28MG/KG/24HR',ml:0.48,via:'IV',freq:1,price:1500,susp:false,vsId:''},
-     {id:3,name:'Tramadol',dose:'2MG/KG/12HR',ml:0.34,via:'IV',freq:2,price:4200,susp:false,vsId:''},
-     {id:4,name:'Oxitetraciclina',dose:'10MG/KG/12H',ml:1.72,via:'IV',freq:2,price:6800,susp:false,vsId:''},
-     {id:5,name:'Hemolitan',dose:'0.1ML/KG/12H',ml:1,via:'PO',freq:2,price:2100,susp:false,vsId:''},
-     {id:6,name:'Furosemida',dose:'1MG/KG/12H',ml:0.17,via:'IV',freq:2,price:1800,susp:true,vsId:''}],
-   admins:{},monitoring:[],labDates:['05 Abr'],
-   labs:{HTO:['45'],HG:['15'],LEUCO:['12.5'],PLTS:['220'],NEU:['78'],LIN:['18'],MON:['4'],ALT:['35'],CREAT:['0.9'],BUN:['18'],ALP:[''],CA:[''],P:[''],ALB:[''],BIL:[''],CHOL:[''],NH3:[''],PT:[''],PTT:[''],GGT:['']},
-   events:[{time:'05/04/2026 23:00',type:'info',text:'Paciente ingresa estable, alerta.',by:'Médico'},{time:'06/04/2026 08:00',type:'warning',text:'Leve decaimiento en la mañana.',by:'Auxiliar'}],dayRate:45000},
-  {id:2,name:'NATASHA',owner:'Johan Pérez',species:'Canino',breed:'Poodle',sex:'Hembra',weight:10,age:'13 años',status:'alta',vet:'Dra. Martínez',vsId:'',admitDate:'2026-04-05',dischargeDate:'2026-04-07',reason:'Miasis oreja derecha',diagnosis:'Limpieza bajo sedación + Usurnia',emoji:'🐩',
-   medications:[{id:1,name:'Dexametasona',dose:'0.3MG/KG/12H',ml:0.75,via:'IV',freq:2,price:3500,susp:false,vsId:''},{id:2,name:'Dipirona',dose:'10MG/KG/12H',ml:0.2,via:'IV',freq:2,price:1500,susp:false,vsId:''},{id:3,name:'Opter',dose:'CD12H',ml:1,via:'OTICA',freq:2,price:5500,susp:false,vsId:''},{id:4,name:'Ceftriaxona',dose:'30MG/KG/12H',ml:1.5,via:'IV',freq:2,price:7200,susp:false,vsId:''}],
-   admins:{},monitoring:[],labDates:[],labs:{},
-   events:[{time:'07/04/2026 11:00',type:'info',text:'Alta médica. Tratamiento ambulatorio.',by:'Médico'}],dayRate:45000},
-  {id:3,name:'MOTICA',owner:'Amparo Maldonado',species:'Felino',breed:'Criollo',sex:'Macho',weight:0.5,age:'—',status:'hospitalizado',vet:'Dr. García',vsId:'',admitDate:'2026-04-05',reason:'Lesiones/pústulas cuerpo, anemia, trombocitopenia',diagnosis:'Sospecha hemoparásitos + dermatopatía',emoji:'🐱',
-   medications:[{id:1,name:'Limpieza',dose:'CAD 12HR',ml:2,via:'TOPIC',freq:2,price:0,susp:false,vsId:''},{id:2,name:'Nutrigel',dose:'CAD 8HR',ml:1,via:'PO',freq:3,price:1800,susp:false,vsId:''},{id:3,name:'Hemolitan',dose:'0.1ML/KG/12HR',ml:0.1,via:'PO',freq:2,price:2100,susp:false,vsId:''},{id:4,name:'Oxitetraciclina',dose:'5MG/KG/12HR',ml:0.05,via:'IV',freq:2,price:6800,susp:false,vsId:''},{id:5,name:'Hioscina',dose:'CAD 12HR',ml:0.01,via:'IV',freq:2,price:1900,susp:false,vsId:''},{id:6,name:'Doxiciclina 20mg',dose:'CAD 24H',ml:0.25,via:'PO',freq:1,price:2400,susp:false,vsId:''}],
-   admins:{},monitoring:[],labDates:['05 Abr'],
-   labs:{HTO:['22'],HG:['7.2'],LEUCO:['4.5'],PLTS:['58'],NEU:[''],LIN:[''],MON:[''],ALT:[''],CREAT:[''],BUN:[''],ALP:[''],CA:[''],P:[''],ALB:[''],BIL:[''],CHOL:[''],NH3:[''],PT:[''],PTT:[''],GGT:['']},
-   events:[{time:'05/04/2026 19:00',type:'alert',text:'Anemia severa HTO 22%. Plaquetas 58k. Paciente crítico.',by:'Médico'}],dayRate:35000}
-];
+var patients=[];
+var API_URL=localStorage.getItem('ac_api_url')||'';
 var LAB_PARAMS=[{k:'HTO',l:'Hematocrito',u:'%',ref:'37-55'},{k:'HG',l:'Hemoglobina',u:'g/dL',ref:'12-18'},{k:'LEUCO',l:'Leucocitos',u:'x10³/uL',ref:'6-17'},{k:'PLTS',l:'Plaquetas',u:'x10³/uL',ref:'200-500'},{k:'NEU',l:'Neutrófilos',u:'%',ref:'60-77'},{k:'LIN',l:'Linfocitos',u:'%',ref:'12-30'},{k:'MON',l:'Monocitos',u:'%',ref:'3-10'},{k:'ALT',l:'ALT (TGP)',u:'UI/L',ref:'10-100'},{k:'CREAT',l:'Creatinina',u:'mg/dL',ref:'0.5-1.5'},{k:'BUN',l:'BUN/Urea',u:'mg/dL',ref:'7-27'},{k:'ALP',l:'Fosfatasa Alc.',u:'UI/L',ref:'23-212'},{k:'CA',l:'Calcio',u:'mg/dL',ref:'8.5-11.5'},{k:'P',l:'Fósforo',u:'mg/dL',ref:'2.5-6.5'},{k:'ALB',l:'Albúmina',u:'g/dL',ref:'2.3-3.9'},{k:'BIL',l:'Bilirrubina T.',u:'mg/dL',ref:'0-0.9'},{k:'CHOL',l:'Colesterol',u:'mg/dL',ref:'125-270'},{k:'NH3',l:'Amonio',u:'ug/dL',ref:'0-100'},{k:'PT',l:'Prot. Total',u:'g/dL',ref:'5.5-7.8'},{k:'PTT',l:'PTT',u:'seg',ref:'60-90'},{k:'GGT',l:'GGT',u:'UI/L',ref:'0-11'}];
 var curId=null,curTab='protocolo',filterSt='hospitalizado',orderChecks={},monSel={},curResPeriod='semana';
 var USER_ROLE=localStorage.getItem('ac_role')||'medico'; // 'admin' | 'medico'
@@ -549,6 +537,36 @@ function loginAdmin(){
   }
 }
 
+/* -- SHEETS API -- */
+function api(action,data,cb){
+  if(!API_URL){if(cb)cb('API no configurada — abrí ⚙️ Configuración',null);return;}
+  var params=Object.assign({action:action},data||{});
+  fetch(API_URL+'?d='+encodeURIComponent(JSON.stringify(params)))
+    .then(function(r){return r.json();})
+    .then(function(res){if(cb)cb(res.ok?null:res.error,res.data);})
+    .catch(function(e){if(cb)cb(e.message,null);});
+}
+function invalidateCache(){localStorage.removeItem('ac_data');localStorage.removeItem('ac_data_ts');}
+function loadData(done){
+  var cached=localStorage.getItem('ac_data');
+  var ts=parseInt(localStorage.getItem('ac_data_ts')||'0');
+  if(cached&&(Date.now()-ts)<300000){
+    try{patients=JSON.parse(cached);if(done)done();return;}catch(e){}
+  }
+  if(!API_URL){if(done)done();return;}
+  document.getElementById('mainContent').innerHTML=
+    '<div class="empty"><div class="empty-ico"><span class="spin" style="width:32px;height:32px;border-width:3px"></span></div>'+
+    '<div class="empty-title" style="margin-top:12px">Cargando datos…</div></div>';
+  api('getAll',{},function(err,data){
+    if(!err&&data){
+      patients=data;
+      localStorage.setItem('ac_data',JSON.stringify(patients));
+      localStorage.setItem('ac_data_ts',String(Date.now()));
+    } else if(err) toast('❌ '+err);
+    if(done)done();
+  });
+}
+
 /* -- VETESOFT API -- */
 function vsH(){return{'Auth-Token':VS_TOKEN,'Content-Type':'application/json'};}
 function vsGet(path){return fetch(VS_BASE+path,{headers:vsH()}).then(function(r){if(!r.ok) throw new Error('HTTP '+r.status); return r.json();}).catch(function(e){console.warn('VS:',e.message);return null;});}
@@ -570,7 +588,26 @@ function testVetesoft(){
 function saveConfig(){
   var t=document.getElementById('cfg-token').value.trim();
   if(t){VS_TOKEN=t;localStorage.setItem('vs_token',t);}
+  var u=document.getElementById('cfg-api-url').value.trim();
+  if(u){API_URL=u;localStorage.setItem('ac_api_url',u);}
   closeModal('modalConfig');toast('⚙️ Configuración guardada');
+}
+function testApi(){
+  var u=document.getElementById('cfg-api-url').value.trim();
+  if(!u){toast('⚠️ Ingresa la URL del Apps Script');return;}
+  var st=document.getElementById('apiStatus');
+  st.style.color='var(--muted)';st.textContent='Probando conexión…';
+  API_URL=u;localStorage.setItem('ac_api_url',u);
+  api('getAll',{},function(err,data){
+    if(err){st.style.color='var(--red)';st.textContent='❌ '+err;return;}
+    patients=data||[];
+    localStorage.setItem('ac_data',JSON.stringify(patients));
+    localStorage.setItem('ac_data_ts',String(Date.now()));
+    st.style.color='var(--teal)';st.textContent='✅ Conectado — '+patients.length+' paciente(s) cargados';
+    renderSidebar();
+    if(patients.length) selPat(patients[0].id);
+    else document.getElementById('mainContent').innerHTML='<div class="empty"><div class="empty-ico">🏥</div><div class="empty-title">Sin pacientes aún</div><div class="empty-sub">Usá "+ Nuevo Paciente" para agregar el primero</div></div>';
+  });
 }
 function loadVetesoftCatalog(){
   if(!VS_TOKEN) return;
@@ -580,7 +617,7 @@ function loadVetesoftCatalog(){
   // Pacientes: intentar desde cache primero
   var cached=localStorage.getItem('vs_patients_cache');
   var cachedTime=parseInt(localStorage.getItem('vs_patients_cache_time')||'0');
-  var CACHE_TTL=3600000; // 1 hora
+  var CACHE_TTL=86400000; // 24 horas
   if(cached && (Date.now()-cachedTime)<CACHE_TTL){
     try{
       vsPatients=JSON.parse(cached);
@@ -1180,15 +1217,28 @@ function chkOrd(btn){
   if(!orderChecks[key]) orderChecks[key]={};
   orderChecks[key][mid]=!orderChecks[key][mid];
   var p=gp();
+  var ts=new Date().toISOString();
   if(orderChecks[key][mid]){
     if(!p.admins[mid]) p.admins[mid]=[];
-    p.admins[mid].push(new Date().toISOString());
+    p.admins[mid].push(ts);
+    api('recordDose',{patientId:p.id,medId:mid,ts:ts},function(err){if(err)toast('⚠️ No se pudo guardar dosis: '+err);else invalidateCache();});
   }
   rProtocolo(p,document.getElementById('mainContent'),document.getElementById('hdrActions'));
 }
 
-function toggleSusp(i){var p=gp();p.medications[i].susp=!p.medications[i].susp;renderTabContent();toast(p.medications[i].susp?'Suspendido':'Reactivado');}
-function removeMed(i){var p=gp();if(!confirm('Eliminar '+p.medications[i].name+'?'))return;p.medications.splice(i,1);renderTabContent();toast('Eliminado');}
+function toggleSusp(i){
+  var p=gp();p.medications[i].susp=!p.medications[i].susp;
+  var m=p.medications[i];
+  api('saveMed',{med:Object.assign({patientId:p.id},m)},function(err){if(err)toast('⚠️ '+err);else invalidateCache();});
+  renderTabContent();toast(m.susp?'Suspendido':'Reactivado');
+}
+function removeMed(i){
+  var p=gp();if(!confirm('Eliminar '+p.medications[i].name+'?'))return;
+  var id=p.medications[i].id;
+  p.medications.splice(i,1);
+  api('suspMed',{id:id},function(err){if(err)toast('⚠️ '+err);else invalidateCache();});
+  renderTabContent();toast('Eliminado');
+}
 
 /* -- MONITOREO -- */
 function rMon(p,c,ha){
@@ -1303,19 +1353,24 @@ function setMon(k,v,btn){
   btn.classList.remove('btn-g');btn.classList.add('btn-p');
 }
 function saveMon(){
-  var p=gp(),pad=function(n){return n<10?'0'+n:n;};
-  p.monitoring.push({
+  var p=gp();
+  var entry={
+    patientId:p.id,
     date:document.getElementById('mon-date').value,
     hour:document.getElementById('mon-hour').value,
-    orino:monSel['orino']==='yes',defeco:monSel['defeco']==='yes',
-    vomito:monSel['vomito']==='yes',comio:monSel['comio']==='yes',agua:monSel['agua']==='yes',
-    temp:document.getElementById('mon-temp').value,
-    tllc:document.getElementById('mon-tllc').value,
-    rpc:document.getElementById('mon-rpc').value,
-    mucosas:document.getElementById('mon-muc').value,
-    hidratacion:document.getElementById('mon-hid').value,
-    peso:document.getElementById('mon-peso').value
-  });
+    data:{
+      orino:monSel['orino']==='yes',defeco:monSel['defeco']==='yes',
+      vomito:monSel['vomito']==='yes',comio:monSel['comio']==='yes',agua:monSel['agua']==='yes',
+      temp:document.getElementById('mon-temp').value,
+      tllc:document.getElementById('mon-tllc').value,
+      rpc:document.getElementById('mon-rpc').value,
+      mucosas:document.getElementById('mon-muc').value,
+      hidratacion:document.getElementById('mon-hid').value,
+      peso:document.getElementById('mon-peso').value
+    }
+  };
+  p.monitoring.push({date:entry.date,hour:entry.hour,data:entry.data});
+  api('saveMon',{mon:entry},function(err){if(err)toast('⚠️ '+err);else invalidateCache();});
   monSel={};renderTabContent();toast('Reporte guardado');
 }
 
@@ -1341,10 +1396,19 @@ function rLabs(p,c,ha){
 }
 function saveLabs(){
   var p=gp();if(!p.labs)p.labs={};
-  var today=new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'short'});var hasData=false;
-  LAB_PARAMS.forEach(function(lp){var inp=document.getElementById('lab-'+lp.k);if(!p.labs[lp.k])p.labs[lp.k]=[];
-    if(inp&&inp.value.trim()){p.labs[lp.k].push(inp.value.trim());hasData=true;}else p.labs[lp.k].push('');});
-  if(hasData){p.labDates.push(today);renderTabContent();toast('Control guardado');}else toast('Ingresa al menos un valor');
+  var today=new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'short'});
+  var labsData={};var hasData=false;
+  LAB_PARAMS.forEach(function(lp){
+    var inp=document.getElementById('lab-'+lp.k);
+    var val=inp?inp.value.trim():'';
+    if(!p.labs[lp.k])p.labs[lp.k]=[];
+    p.labs[lp.k].push(val);
+    if(val){labsData[lp.k]=val;hasData=true;}
+  });
+  if(!hasData){toast('Ingresa al menos un valor');return;}
+  p.labDates.push(today);
+  api('saveLabs',{patientId:p.id,labDate:today,labs:labsData},function(err){if(err)toast('⚠️ '+err);else invalidateCache();});
+  renderTabContent();toast('Control guardado');
 }
 
 /* -- EVENTOS -- */
@@ -1385,6 +1449,92 @@ function rFactura(p,c,ha){
     '<div style="text-align:right"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">TOTAL ESTIMADO</div><div class="bill-grand">$'+grand.toLocaleString()+' COP</div></div></div>'+
     '</div>'+
     '<div class="ib ib-teal" style="margin-top:10px;font-size:11px">El número verde (✓) son dosis confirmadas en la Orden. Para cobro exacto usa solo esas.</div>';
+}
+
+/* -- CRUD PACIENTES / MEDICAMENTOS / EVENTOS -- */
+function g(id){return document.getElementById(id);}
+function fv(id){return(g(id)&&g(id).value||'').trim();}
+
+function saveNewPatient(){
+  var name=fv('nw-name');var owner=fv('nw-owner');
+  if(!name||!owner){toast('⚠️ Nombre y propietario son obligatorios');return;}
+  var today=new Date();
+  var dd=String(today.getFullYear())+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  var EMOJIS={Canino:'🐕',Felino:'🐱',Ave:'🦜',Exótico:'🦎'};
+  var sp=fv('nw-species')||'Canino';
+  var pat={
+    name:name.toUpperCase(),owner:owner,doc:fv('nw-doc'),phone:fv('nw-phone'),
+    species:sp,breed:fv('nw-breed'),sex:fv('nw-sex'),
+    weight:parseFloat(fv('nw-weight'))||0,age:fv('nw-age'),
+    status:'hospitalizado',vet:fv('nw-vet'),vsId:fv('nw-vsid'),
+    admitDate:dd,dischargeDate:'',reason:fv('nw-reason'),diagnosis:fv('nw-diagnosis'),
+    emoji:EMOJIS[sp]||'🐾',dayRate:45000
+  };
+  api('savePatient',{patient:pat},function(err,id){
+    if(err){toast('❌ '+err);return;}
+    pat.id=id;pat.medications=[];pat.admins={};pat.monitoring=[];pat.events=[];pat.labDates=[];pat.labs={};
+    patients.push(pat);
+    invalidateCache();
+    renderSidebar();selPat(pat.id);closeModal('modalNew');toast('✅ Paciente ingresado');
+  });
+}
+
+function saveMed(){
+  var p=gp();if(!p)return;
+  var name=fv('med-name');if(!name){toast('⚠️ Ingresa el nombre del medicamento');return;}
+  var med={
+    patientId:p.id,name:name,dose:fv('med-dose'),
+    ml:parseFloat(fv('med-ml'))||0,via:fv('med-via')||'IV',
+    freq:parseInt(fv('med-freq'))||1,price:parseInt(fv('med-price'))||0,
+    susp:false,vsId:fv('med-vsid')
+  };
+  api('saveMed',{med:med},function(err,id){
+    if(err){toast('❌ '+err);return;}
+    med.id=id;
+    p.medications.push(med);
+    invalidateCache();
+    closeModal('modalMed');renderTabContent();toast('✅ Medicamento agregado');
+  });
+}
+
+function saveEvent(){
+  var p=gp();if(!p)return;
+  var text=fv('ev-text');if(!text){toast('⚠️ Escribe una descripción');return;}
+  var now=new Date().toLocaleString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  var ev={patientId:p.id,time:now,type:fv('ev-type')||'note',text:text,by:fv('ev-by')||'Médico'};
+  api('saveEvent',{ev:ev},function(err,id){
+    if(err){toast('❌ '+err);return;}
+    ev.id=id;
+    p.events.push(ev);
+    invalidateCache();
+    closeModal('modalEvent');renderTabContent();toast('✅ Novedad registrada');
+  });
+}
+
+function dischargePatient(){
+  var p=gp();if(!p)return;
+  if(!confirm('¿Dar de alta a '+p.name+'?'))return;
+  var today=new Date();
+  var dd=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  api('updateStatus',{id:p.id,status:'alta',discharge:dd},function(err){
+    if(err){toast('❌ '+err);return;}
+    p.status='alta';p.dischargeDate=dd;
+    invalidateCache();
+    renderSidebar();renderDetail();toast('✅ Alta registrada');
+  });
+}
+
+function deceasedPatient(){
+  var p=gp();if(!p)return;
+  if(!confirm('¿Registrar fallecimiento de '+p.name+'?'))return;
+  var today=new Date();
+  var dd=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  api('updateStatus',{id:p.id,status:'fallecido',discharge:dd},function(err){
+    if(err){toast('❌ '+err);return;}
+    p.status='fallecido';p.dischargeDate=dd;
+    invalidateCache();
+    renderSidebar();renderDetail();toast('Fallecimiento registrado');
+  });
 }
 
 /* -- RESUMEN GLOBAL -- */
@@ -1495,6 +1645,7 @@ function openModal(id){
   el.onclick=function(e){if(e.target===el) closeModal(id);};
   if(id==='modalNew')updateConnBadge();
   if(id==='modalConfig'){
+    var cfgApiUrl=document.getElementById('cfg-api-url');if(cfgApiUrl)cfgApiUrl.value=API_URL||'';
     var cfgTk=document.getElementById('cfg-token');if(cfgTk)cfgTk.value=VS_TOKEN||'';
     var cfgSt=document.getElementById('vsStatus');
     if(cfgSt){
@@ -1553,8 +1704,13 @@ function logout(){
 })();
 
 /* -- INIT -- */
-renderSidebar();
-selPat(1);
+loadData(function(){
+  renderSidebar();
+  if(patients.length) selPat(patients[0].id);
+  else document.getElementById('mainContent').innerHTML=
+    '<div class="empty"><div class="empty-ico">🏥</div><div class="empty-title">Bienvenido</div>'+
+    '<div class="empty-sub">'+(API_URL?'Sin pacientes aún. Usá "+ Nuevo Paciente".':'Configurá la URL del Apps Script en ⚙️ Configuración para conectar la base de datos.')+'</div></div>';
+});
 
 </script>
 </body>
