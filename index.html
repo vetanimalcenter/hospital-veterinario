@@ -248,6 +248,7 @@ select.fi{cursor:pointer}
         <span>—</span>
         <button onclick="logout()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:10px;padding:2px 4px">Salir</button>
       </div>
+      <button class="btn btn-g" style="width:100%;margin-top:4px;font-size:11px" onclick="showResumen()">📋 Resumen General</button>
       <button class="btn btn-g" style="width:100%;margin-top:4px;font-size:11px" onclick="openModal('modalConfig')">⚙️ Configuración Vetesoft</button>
     </div>
   </aside>
@@ -487,7 +488,7 @@ var patients=[
    events:[{time:'05/04/2026 19:00',type:'alert',text:'Anemia severa HTO 22%. Plaquetas 58k. Paciente crítico.',by:'Médico'}],dayRate:35000}
 ];
 var LAB_PARAMS=[{k:'HTO',l:'Hematocrito',u:'%',ref:'37-55'},{k:'HG',l:'Hemoglobina',u:'g/dL',ref:'12-18'},{k:'LEUCO',l:'Leucocitos',u:'x10³/uL',ref:'6-17'},{k:'PLTS',l:'Plaquetas',u:'x10³/uL',ref:'200-500'},{k:'NEU',l:'Neutrófilos',u:'%',ref:'60-77'},{k:'LIN',l:'Linfocitos',u:'%',ref:'12-30'},{k:'MON',l:'Monocitos',u:'%',ref:'3-10'},{k:'ALT',l:'ALT (TGP)',u:'UI/L',ref:'10-100'},{k:'CREAT',l:'Creatinina',u:'mg/dL',ref:'0.5-1.5'},{k:'BUN',l:'BUN/Urea',u:'mg/dL',ref:'7-27'},{k:'ALP',l:'Fosfatasa Alc.',u:'UI/L',ref:'23-212'},{k:'CA',l:'Calcio',u:'mg/dL',ref:'8.5-11.5'},{k:'P',l:'Fósforo',u:'mg/dL',ref:'2.5-6.5'},{k:'ALB',l:'Albúmina',u:'g/dL',ref:'2.3-3.9'},{k:'BIL',l:'Bilirrubina T.',u:'mg/dL',ref:'0-0.9'},{k:'CHOL',l:'Colesterol',u:'mg/dL',ref:'125-270'},{k:'NH3',l:'Amonio',u:'ug/dL',ref:'0-100'},{k:'PT',l:'Prot. Total',u:'g/dL',ref:'5.5-7.8'},{k:'PTT',l:'PTT',u:'seg',ref:'60-90'},{k:'GGT',l:'GGT',u:'UI/L',ref:'0-11'}];
-var curId=null,curTab='protocolo',filterSt='hospitalizado',orderChecks={},monSel={};
+var curId=null,curTab='protocolo',filterSt='hospitalizado',orderChecks={},monSel={},curResPeriod='semana';
 var USER_ROLE=localStorage.getItem('ac_role')||'medico'; // 'admin' | 'medico'
 var USER_NAME=localStorage.getItem('ac_name')||'';
 var ADMIN_PIN='1234';
@@ -1350,6 +1351,104 @@ function rFactura(p,c,ha){
     '<div style="text-align:right"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">TOTAL ESTIMADO</div><div class="bill-grand">$'+grand.toLocaleString()+' COP</div></div></div>'+
     '</div>'+
     '<div class="ib ib-teal" style="margin-top:10px;font-size:11px">El número verde (✓) son dosis confirmadas en la Orden. Para cobro exacto usa solo esas.</div>';
+}
+
+/* -- RESUMEN GLOBAL -- */
+function showResumen(period){
+  period=period||curResPeriod; curResPeriod=period; curId=null;
+  document.getElementById('detailHead').style.display='none';
+  document.getElementById('tabsBar').innerHTML='';
+  document.getElementById('hdrActions').style.display='none';
+  document.getElementById('mobNav').style.display='none';
+  if(isMobile()){document.getElementById('mobTop').style.display='flex';document.getElementById('mobTitle').textContent='Resumen';}
+  renderSidebar();
+
+  var today=new Date();
+  var daysBack={semana:7,mes:30,semestre:180}[period]||7;
+  var periodStart=new Date(today.getTime()-daysBack*86400000);
+
+  var pats=patients.filter(function(p){
+    var admit=new Date(p.admitDate);
+    var discharge=p.dischargeDate?new Date(p.dischargeDate):null;
+    return admit<=today&&(!discharge||discharge>=periodStart);
+  });
+
+  var totalActive=pats.filter(function(p){return p.status==='hospitalizado';}).length;
+  var totalDays=pats.reduce(function(s,p){return s+days(p);},0);
+  var avgDays=pats.length?(totalDays/pats.length).toFixed(1):0;
+  var totalCost=pats.reduce(function(s,p){
+    var d=days(p);
+    var mc=p.medications.reduce(function(ms,m){return ms+(m.susp?0:m.price*(m.freq||1)*d);},0);
+    return s+(p.dayRate*d)+mc;
+  },0);
+
+  var cards=pats.map(function(p){
+    var d=days(p);
+    var activeMeds=p.medications.filter(function(m){return !m.susp;});
+    var confirmedDoses=Object.keys(p.admins||{}).reduce(function(s,k){return s+((p.admins[k]||[]).length);},0);
+    var patCost=(p.dayRate*d)+activeMeds.reduce(function(s,m){return s+m.price*(m.freq||1)*d;},0);
+    var stCls=p.status==='hospitalizado'?'b-hosp':p.status==='alta'?'b-alta':'b-fall';
+    var stLbl=p.status==='hospitalizado'?'Hospitalizado':p.status==='alta'?'Alta':'✝ Fallecido';
+    return '<div onclick="selPat('+p.id+')" style="cursor:pointer;border:1px solid var(--border);border-radius:var(--rs);'+
+      'background:var(--surface);padding:14px 16px;display:grid;grid-template-columns:52px 1fr auto;gap:14px;'+
+      'align-items:start;transition:border-color .15s" '+
+      'onmouseover="this.style.borderColor=\'var(--teal)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'+
+      '<div style="text-align:center">'+
+        '<div style="font-size:30px;line-height:1.2">'+p.emoji+'</div>'+
+        '<span class="pbadge '+stCls+'" style="font-size:8px;margin-top:3px;display:inline-block;white-space:nowrap">'+stLbl+'</span>'+
+      '</div>'+
+      '<div>'+
+        '<div style="font-size:15px;font-weight:700;margin-bottom:2px">'+p.name+'</div>'+
+        '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">'+p.owner+' · '+p.species+(p.breed?' · '+p.breed:'')+' · '+p.weight+'kg</div>'+
+        (p.diagnosis?'<div style="font-size:11px;color:var(--dim);margin-bottom:6px;font-style:italic">'+p.diagnosis+'</div>':'')+
+        '<div style="display:flex;flex-wrap:wrap;gap:4px">'+
+          '<span class="chip">'+p.vet+'</span>'+
+          '<span class="chip">📅 '+p.admitDate+'</span>'+
+          '<span class="chip">'+d+'d hospitaliz.</span>'+
+          (p.dischargeDate?'<span class="chip" style="color:var(--teal)">Alta: '+p.dischargeDate+'</span>':'')+
+        '</div>'+
+      '</div>'+
+      '<div style="text-align:right;min-width:100px">'+
+        '<div style="font-size:19px;font-weight:700;font-family:JetBrains Mono,monospace;color:var(--teal)">$'+patCost.toLocaleString()+'</div>'+
+        '<div style="font-size:10px;color:var(--muted);margin-bottom:8px">COP estimado</div>'+
+        '<div style="font-size:11px;color:var(--text)"><strong>'+activeMeds.length+'</strong> meds</div>'+
+        (confirmedDoses?'<div style="font-size:11px;color:var(--teal);margin-top:2px"><strong>'+confirmedDoses+'</strong> dosis ✓</div>':'')+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  var periodBtn=function(pk,pl){
+    var on=period===pk;
+    return '<button onclick="showResumen(\''+pk+'\')" style="padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;'+
+      'border:1px solid '+(on?'var(--teal)':'var(--border)')+';'+
+      'background:'+(on?'rgba(0,201,167,.12)':'transparent')+';'+
+      'color:'+(on?'var(--teal)':'var(--muted)')+'">'+pl+'</button>';
+  };
+
+  var c=document.getElementById('mainContent');
+  c.innerHTML=
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">'+
+      '<div style="font-size:18px;font-weight:700">📋 Resumen General</div>'+
+      '<div style="display:flex;gap:4px">'+
+        periodBtn('semana','Semanal')+periodBtn('mes','Mensual')+periodBtn('semestre','Semestral')+
+      '</div>'+
+    '</div>'+
+    (pats.length?
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">'+
+        [
+          {v:pats.length,l:'pacientes'},
+          {v:totalActive,l:'hospitalizados'},
+          {v:avgDays+'d',l:'promedio estancia'},
+          {v:'$'+totalCost.toLocaleString(),l:'estimado total',hi:true}
+        ].map(function(s){
+          return '<div style="border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;background:var(--s2);text-align:center">'+
+            '<div style="font-size:20px;font-weight:700;font-family:JetBrains Mono,monospace;color:'+(s.hi?'var(--teal)':'var(--text)')+'">'+s.v+'</div>'+
+            '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">'+s.l+'</div>'+
+          '</div>';
+        }).join('')+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;gap:10px">'+cards+'</div>'
+    :'<div class="empty"><div class="empty-ico">📋</div><div class="empty-title">Sin pacientes en este período</div></div>');
 }
 
 /* -- MODALS -- */
