@@ -1353,8 +1353,13 @@ function rFactura(p,c,ha){
 }
 
 /* -- MODALS -- */
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+}
 function openModal(id){
-  document.getElementById(id).classList.add('open');
+  var el=document.getElementById(id);
+  el.classList.add('open');
+  el.onclick=function(e){if(e.target===el) closeModal(id);};
   if(id==='modalNew')updateConnBadge();
   if(id==='modalConfig'){
     var cfgTk=document.getElementById('cfg-token');if(cfgTk)cfgTk.value=VS_TOKEN||'';
