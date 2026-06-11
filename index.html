@@ -206,20 +206,33 @@ select.fi{cursor:pointer}
     <div style="font-size:40px;margin-bottom:8px">🐾</div>
     <div style="font-size:20px;font-weight:700;margin-bottom:4px">Animal Center</div>
     <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:28px">Hospital Veterinario</div>
-    <div class="field" style="text-align:left"><div class="fl">Tipo de usuario</div>
-      <select class="fi" id="login-role" onchange="updateLoginRole()">
-        <option value="medico">Médico / Auxiliar</option>
-        <option value="admin">Administrador</option>
-      </select>
+    <!-- Acceso médico directo -->
+    <button onclick="loginMedico()" style="width:100%;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--s2);cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;margin-bottom:12px;transition:border-color .15s" onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:26px">👤</span>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">Médico / Auxiliar</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Acceso directo sin contraseña</div>
+      </div>
+    </button>
+    <!-- Separador -->
+    <div style="display:flex;align-items:center;gap:10px;margin:16px 0">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:11px;color:var(--dim)">o</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
-    <div class="field" style="text-align:left"><div class="fl">Nombre</div>
-      <input class="fi" id="login-name" placeholder="Tu nombre" oninput="updateLoginRole()">
+    <!-- Acceso admin -->
+    <div id="admin-fields" style="display:none;text-align:left">
+      <div class="field"><div class="fl">Usuario</div>
+        <input class="fi" id="login-user" placeholder="admin" autocomplete="username">
+      </div>
+      <div class="field"><div class="fl">Contraseña</div>
+        <input class="fi" id="login-pass" type="password" placeholder="••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAdmin()">
+      </div>
+      <div id="login-err" style="font-size:12px;color:var(--red);margin:6px 0;display:none">Usuario o contraseña incorrectos</div>
+      <button class="btn btn-p" style="width:100%;padding:11px;font-size:14px" onclick="loginAdmin()">Ingresar como Administrador</button>
+      <button onclick="document.getElementById('admin-fields').style.display='none';document.getElementById('admin-toggle').style.display='block'" style="width:100%;margin-top:6px;padding:8px;border:none;background:none;color:var(--muted);font-size:12px;cursor:pointer">Cancelar</button>
     </div>
-    <div class="field" id="login-pin-field" style="display:none;text-align:left">
-      <div class="fl">PIN administrador</div>
-      <input class="fi" id="login-pin" type="password" placeholder="••••" maxlength="6">
-    </div>
-    <button class="btn btn-p" style="width:100%;padding:11px;font-size:14px;margin-top:8px" onclick="doLogin()">Ingresar</button>
+    <button id="admin-toggle" onclick="document.getElementById('admin-fields').style.display='block';document.getElementById('admin-toggle').style.display='none';document.getElementById('login-err').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:4px 8px">🔑 Acceso administrativo</button>
   </div>
 </div>
 <div id="sbBackdrop" class="sb-backdrop" onclick="closeSidebar()"></div>
@@ -298,7 +311,21 @@ select.fi{cursor:pointer}
         <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-g btn-sm" onclick="loadVetesoftCatalog()">🔄 Recargar</button><button class="btn btn-r btn-sm" onclick="localStorage.removeItem('vs_patients_cache');localStorage.removeItem('vs_patients_cache_time');toast('Cache borrado — recarga el catálogo')">🗑 Borrar cache</button></div>
       </div>
     </div>
-    <div class="modal-ft"><button class="btn btn-g" onclick="closeModal('modalConfig')">Cerrar</button><button class="btn btn-p" onclick="saveConfig()">Guardar</button></div>
+      <div class="cfg-section" id="cfg-creds-section" style="display:none">
+        <div class="cfg-title">Credenciales de Administrador</div>
+        <div class="field"><div class="fl">Usuario actual</div>
+          <input class="fi" id="cfg-creds-user" placeholder="admin" autocomplete="off">
+        </div>
+        <div class="field"><div class="fl">Contraseña nueva</div>
+          <input class="fi" id="cfg-creds-pass" type="password" placeholder="Nueva contraseña" autocomplete="new-password">
+        </div>
+        <div class="field"><div class="fl">Confirmar contraseña</div>
+          <input class="fi" id="cfg-creds-pass2" type="password" placeholder="Repite la contraseña" autocomplete="new-password">
+        </div>
+        <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="saveAdminCreds()">Guardar credenciales</button>
+      </div>
+    </div>
+    <div class="modal-ft"><button class="btn btn-g" onclick="closeModal('modalConfig')">Cerrar</button><button class="btn btn-p" onclick="saveConfig()">Guardar token</button></div>
   </div>
 </div>
 
@@ -491,30 +518,35 @@ var LAB_PARAMS=[{k:'HTO',l:'Hematocrito',u:'%',ref:'37-55'},{k:'HG',l:'Hemoglobi
 var curId=null,curTab='protocolo',filterSt='hospitalizado',orderChecks={},monSel={},curResPeriod='semana';
 var USER_ROLE=localStorage.getItem('ac_role')||'medico'; // 'admin' | 'medico'
 var USER_NAME=localStorage.getItem('ac_name')||'';
-var ADMIN_PIN='1234';
-
 /* -- LOGIN -- */
-function updateLoginRole(){
-  var role=document.getElementById('login-role').value;
-  var pf=document.getElementById('login-pin-field');
-  if(pf) pf.style.display=role==='admin'?'block':'none';
+function getAdminCreds(){
+  try{return JSON.parse(localStorage.getItem('ac_admin_creds'))||{user:'admin',pass:'1234'};}
+  catch(e){return {user:'admin',pass:'1234'};}
 }
-function doLogin(){
-  var role=document.getElementById('login-role').value;
-  var name=(document.getElementById('login-name').value||'').trim();
-  if(!name){toast('⚠️ Ingresa tu nombre');return;}
-  if(role==='admin'){
-    var pin=document.getElementById('login-pin').value;
-    if(pin!==ADMIN_PIN){toast('❌ PIN incorrecto');return;}
-  }
+function setSession(role,name){
   USER_ROLE=role; USER_NAME=name;
   localStorage.setItem('ac_role',role);
   localStorage.setItem('ac_name',name);
   document.getElementById('loginScreen').style.display='none';
   var el=document.getElementById('userBadge');
-  if(el) el.innerHTML=(role==='admin'?'🔑 ':'👤 ')+'<strong>'+name+'</strong> · '+(role==='admin'?'Admin':'Médico');
+  if(el) el.innerHTML=(role==='admin'?'🔑 ':'👤 ')+'<strong>'+name+'</strong> · '+(role==='admin'?'Administrador':'Médico');
   updateRoleUI();
   toast('Bienvenido/a, '+name);
+}
+function loginMedico(){
+  setSession('medico','Médico');
+}
+function loginAdmin(){
+  var u=(document.getElementById('login-user').value||'').trim();
+  var p=document.getElementById('login-pass').value;
+  var creds=getAdminCreds();
+  var err=document.getElementById('login-err');
+  if(u===creds.user&&p===creds.pass){
+    err.style.display='none';
+    setSession('admin',u);
+  } else {
+    err.style.display='block';
+  }
 }
 
 /* -- VETESOFT API -- */
@@ -1473,17 +1505,29 @@ function openModal(id){
     var sp=document.getElementById('stat-patients');if(sp)sp.textContent=vsPatients.length||'0';
     var sp2=document.getElementById('stat-products');if(sp2)sp2.textContent=vsProducts.length||'0';
     var sc=document.getElementById('stat-cats');if(sc)sc.textContent=vsCategories.length||'0';
+    // Mostrar sección de credenciales solo para admin
+    var credsSection=document.getElementById('cfg-creds-section');
+    if(credsSection){
+      credsSection.style.display=USER_ROLE==='admin'?'block':'none';
+      if(USER_ROLE==='admin'){
+        var c=getAdminCreds();
+        document.getElementById('cfg-creds-user').value=c.user;
+        document.getElementById('cfg-creds-pass').value='';
+        document.getElementById('cfg-creds-pass2').value='';
+      }
+    }
   }
-  USER_ROLE=role; USER_NAME=name;
-  localStorage.setItem('ac_role',role);
-  localStorage.setItem('ac_name',name);
-  document.getElementById('loginScreen').style.display='none';
-  // Mostrar nombre en sidebar
-  var el=document.getElementById('userBadge');
-  if(el) el.innerHTML=(role==='admin'?'🔑 ':'👤 ')+'<strong>'+name+'</strong> · '+(role==='admin'?'Admin':'Médico');
-  // Si médico, ocultar tab factura
-  updateRoleUI();
-  toast('Bienvenido/a, '+name);
+}
+function saveAdminCreds(){
+  var u=(document.getElementById('cfg-creds-user').value||'').trim();
+  var p=document.getElementById('cfg-creds-pass').value;
+  var p2=document.getElementById('cfg-creds-pass2').value;
+  if(!u){toast('⚠️ El usuario no puede estar vacío');return;}
+  if(!p){toast('⚠️ Ingresa una contraseña');return;}
+  if(p!==p2){toast('❌ Las contraseñas no coinciden');return;}
+  localStorage.setItem('ac_admin_creds',JSON.stringify({user:u,pass:p}));
+  toast('✓ Credenciales actualizadas');
+  closeModal('modalConfig');
 }
 function updateRoleUI(){
   var adminTabs=['factura'];
@@ -1500,12 +1544,11 @@ function logout(){
 // Auto-login + auto-load Vetesoft
 (function(){
   if(USER_ROLE&&USER_NAME&&USER_NAME.length>0){
-    var ls=document.getElementById('loginScreen');
-    if(ls) ls.style.display='none';
+    document.getElementById('loginScreen').style.display='none';
     var el=document.getElementById('userBadge');
-    if(el) el.innerHTML=(USER_ROLE==='admin'?'[A] ':'[M] ')+'<strong>'+USER_NAME+'</strong>';
+    if(el) el.innerHTML=(USER_ROLE==='admin'?'🔑 ':'👤 ')+'<strong>'+USER_NAME+'</strong> · '+(USER_ROLE==='admin'?'Administrador':'Médico');
+    updateRoleUI();
   }
-  // Auto-load Vetesoft on every page load if token is saved
   if(VS_TOKEN) loadVetesoftCatalog();
 })();
 
