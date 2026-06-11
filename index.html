@@ -968,46 +968,71 @@ function rProtocolo(p,c,ha){
     {k:'A',label:'Madrugada',hora:'01:00',h0:0, h1:6, minFreq:4}
   ];
 
-  var hoyHTML='';
-  TURNOS.forEach(function(t){
-    var meds=active.filter(function(m){return m.freq>=t.minFreq||(m.freq===0&&t.k==='M');});
-    if(!meds.length) return;
-    var key='hoy-'+p.id+'-'+t.k;
-    if(!orderChecks[key]) orderChecks[key]={};
-    var done=meds.filter(function(m){return orderChecks[key][m.id];}).length;
-    var allDone=done===meds.length;
-    hoyHTML+=
-      '<div style="margin-bottom:8px;border:1px solid '+(allDone?'rgba(0,201,167,.4)':'var(--border)')+';border-radius:var(--rs);overflow:hidden">'+
-        '<div style="padding:7px 12px;background:'+(allDone?'rgba(0,201,167,.08)':'var(--s2)')+';display:flex;align-items:center;justify-content:space-between;gap:8px">'+
-          '<span style="font-weight:700;font-size:12px">'+t.label+
-            ' <span style="font-size:11px;font-weight:400;color:var(--muted)">'+t.hora+'</span></span>'+
-          '<span style="font-size:12px;font-weight:700;color:'+(allDone?'var(--teal)':'var(--muted)')+'">'+
-            done+'/'+meds.length+(allDone?' ✓':'')+'</span>'+
-        '</div>'+
-        meds.map(function(m){
-          var chk=!!orderChecks[key][m.id];
-          return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;'+
-            'border-top:1px solid rgba(42,48,64,.25);'+
-            'background:'+(chk?'rgba(0,201,167,.05)':'transparent')+'">'+
-            '<button data-key="'+key+'" data-mid="'+m.id+'" onclick="chkOrd(this)" '+
-              'style="flex-shrink:0;width:26px;height:26px;border-radius:6px;'+
-              'border:2px solid '+(chk?'var(--teal)':'var(--borderl)')+';'+
-              'background:'+(chk?'var(--teal)':'transparent')+';'+
-              'color:'+(chk?'#0f1117':'transparent')+';'+
-              'font-size:14px;font-weight:900;cursor:pointer;'+
-              'display:flex;align-items:center;justify-content:center;transition:all .15s">'+
-              (chk?'&#10003;':'')+
-            '</button>'+
-            '<div style="flex:1;min-width:0">'+
-              '<div style="font-size:13px;font-weight:600;'+(chk?'text-decoration:line-through;color:var(--dim)':'')+'">'+m.name+'</div>'+
-              '<div style="font-size:10px;color:var(--dim);margin-top:1px">'+m.dose+'</div>'+
-            '</div>'+
-            '<span style="font-family:monospace;font-size:13px;font-weight:700;color:var(--teal);flex-shrink:0">'+m.ml+'ml</span>'+
-            '<span class="via v-'+m.via+'" style="flex-shrink:0">'+m.via+'</span>'+
-          '</div>';
-        }).join('')+
-      '</div>';
+  // Pre-compute keys and done-counts per turno
+  var turnoKeys=TURNOS.map(function(t){
+    var k='hoy-'+p.id+'-'+t.k;
+    if(!orderChecks[k]) orderChecks[k]={};
+    return k;
   });
+  var turnoApplicable=TURNOS.map(function(t){
+    return active.filter(function(m){return m.freq>=t.minFreq||(m.freq===0&&t.k==='M');});
+  });
+  var turnoDone=TURNOS.map(function(t,i){
+    return turnoApplicable[i].filter(function(m){return orderChecks[turnoKeys[i]][m.id];}).length;
+  });
+
+  // Header row: one column per turno
+  var hoyHdr=TURNOS.map(function(t,i){
+    var cnt=turnoApplicable[i].length;
+    var done=turnoDone[i];
+    var all=cnt>0&&done===cnt;
+    return '<th style="text-align:center;padding:5px 6px;font-size:11px;font-weight:700;'+
+      'border-left:1px solid var(--border);color:'+(all?'var(--teal)':'var(--text)')+';white-space:nowrap">'+
+      t.label+'<br>'+
+      '<span style="font-size:9px;font-weight:400;color:var(--muted)">'+t.hora+'</span>'+
+      (cnt?'<br><span style="font-size:10px;color:'+(all?'var(--teal)':'var(--muted)')+'">'+done+'/'+cnt+(all?' ✓':'')+'</span>':'')+
+    '</th>';
+  }).join('');
+
+  // Body rows: one row per active medication
+  var hoyRows=active.map(function(m){
+    var cells=TURNOS.map(function(t,i){
+      var applies=m.freq>=t.minFreq||(m.freq===0&&t.k==='M');
+      if(!applies) return '<td style="border-left:1px solid var(--border);background:rgba(42,48,64,.04)"></td>';
+      var key=turnoKeys[i];
+      var chk=!!orderChecks[key][m.id];
+      return '<td style="border-left:1px solid var(--border);text-align:center;padding:4px 2px">'+
+        '<button data-key="'+key+'" data-mid="'+m.id+'" onclick="chkOrd(this)" '+
+          'style="width:26px;height:26px;border-radius:6px;'+
+          'border:2px solid '+(chk?'var(--teal)':'var(--borderl)')+';'+
+          'background:'+(chk?'var(--teal)':'transparent')+';'+
+          'color:'+(chk?'#0f1117':'transparent')+';'+
+          'font-size:14px;font-weight:900;cursor:pointer;'+
+          'display:inline-flex;align-items:center;justify-content:center;transition:all .15s">'+
+          (chk?'&#10003;':'')+
+        '</button>'+
+      '</td>';
+    }).join('');
+    return '<tr style="border-bottom:1px solid rgba(42,48,64,.15)">'+
+      '<td style="padding:5px 10px;font-size:12px;font-weight:600;white-space:nowrap">'+
+        m.name+
+        ' <span style="font-family:monospace;font-size:11px;color:var(--teal);font-weight:700">'+m.ml+'ml</span>'+
+        ' <span class="via v-'+m.via+'" style="font-size:9px">'+m.via+'</span>'+
+      '</td>'+cells+
+    '</tr>';
+  }).join('');
+
+  var hoyHTML=active.length?
+    '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--rs)">'+
+      '<table style="width:100%;border-collapse:collapse">'+
+        '<thead><tr style="background:var(--s2)">'+
+          '<th style="padding:5px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--muted)">Medicamento</th>'+
+          hoyHdr+
+        '</tr></thead>'+
+        '<tbody>'+hoyRows+'</tbody>'+
+      '</table>'+
+    '</div>'
+  :'';
 
   // ── Tabla semanal ────────────────────────────────────
   var days=[];
