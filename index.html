@@ -490,6 +490,31 @@ var LAB_PARAMS=[{k:'HTO',l:'Hematocrito',u:'%',ref:'37-55'},{k:'HG',l:'Hemoglobi
 var curId=null,curTab='protocolo',filterSt='hospitalizado',orderChecks={},monSel={};
 var USER_ROLE=localStorage.getItem('ac_role')||'medico'; // 'admin' | 'medico'
 var USER_NAME=localStorage.getItem('ac_name')||'';
+var ADMIN_PIN='1234';
+
+/* -- LOGIN -- */
+function updateLoginRole(){
+  var role=document.getElementById('login-role').value;
+  var pf=document.getElementById('login-pin-field');
+  if(pf) pf.style.display=role==='admin'?'block':'none';
+}
+function doLogin(){
+  var role=document.getElementById('login-role').value;
+  var name=(document.getElementById('login-name').value||'').trim();
+  if(!name){toast('⚠️ Ingresa tu nombre');return;}
+  if(role==='admin'){
+    var pin=document.getElementById('login-pin').value;
+    if(pin!==ADMIN_PIN){toast('❌ PIN incorrecto');return;}
+  }
+  USER_ROLE=role; USER_NAME=name;
+  localStorage.setItem('ac_role',role);
+  localStorage.setItem('ac_name',name);
+  document.getElementById('loginScreen').style.display='none';
+  var el=document.getElementById('userBadge');
+  if(el) el.innerHTML=(role==='admin'?'🔑 ':'👤 ')+'<strong>'+name+'</strong> · '+(role==='admin'?'Admin':'Médico');
+  updateRoleUI();
+  toast('Bienvenido/a, '+name);
+}
 
 /* -- VETESOFT API -- */
 function vsH(){return{'Auth-Token':VS_TOKEN,'Content-Type':'application/json'};}
