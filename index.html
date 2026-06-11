@@ -850,7 +850,7 @@ function openSidebar(){document.getElementById('sidebar').classList.add('open');
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sbBackdrop').classList.remove('show');}
 
 /* -- DETAIL -- */
-function selPat(id){curId=id;curTab='ficha';renderSidebar();renderDetail();if(isMobile())closeSidebar();}
+function selPat(id){curId=id;curTab=USER_ROLE==='admin'?'factura':'protocolo';renderSidebar();renderDetail();if(isMobile())closeSidebar();}
 function renderDetail(){
   var p=gp();if(!p)return;var d=days(p);
   document.getElementById('mobTitle').textContent=p.name;
@@ -889,7 +889,9 @@ function renderDetail(){
     '</div>'+
     '<div style="display:flex;gap:5px;flex-shrink:0;align-items:flex-start">'+actBtns+'</div>'+
     '</div>';
-  var TABS=[{id:'protocolo',l:'💊 Protocolo'},{id:'monitoreo',l:'📊 Monitoreo'},{id:'labs',l:'🔬 Exámenes'},{id:'eventos',l:'⚡ Novedades'},{id:'factura',l:'💰 Facturación'}];
+  var TABS=USER_ROLE==='admin'
+    ?[{id:'factura',l:'💰 Facturación'}]
+    :[{id:'protocolo',l:'💊 Protocolo'},{id:'monitoreo',l:'📊 Monitoreo'},{id:'labs',l:'🔬 Exámenes'},{id:'eventos',l:'⚡ Novedades'}];
   document.getElementById('tabsBar').innerHTML=TABS.map(function(t){return '<div class="tab'+(curTab===t.id?' on':'')+'" onclick="switchTab(\''+t.id+'\')">'+t.l+'</div>';}).join('');
   renderTabContent();
   updateRoleUI();
@@ -1484,14 +1486,11 @@ function openModal(id){
   toast('Bienvenido/a, '+name);
 }
 function updateRoleUI(){
-  // Ocultar tab factura para médicos
-  document.querySelectorAll('.tab').forEach(function(t){
-    if(t.textContent.includes('Facturación')||t.textContent.includes('💰')){
-      t.style.display=USER_ROLE==='admin'?'':'none';
-    }
-  });
+  var adminTabs=['factura'];
+  var medicoTabs=['protocolo','monitoreo','labs','eventos'];
+  var allowed=USER_ROLE==='admin'?adminTabs:medicoTabs;
   document.querySelectorAll('.mob-nav-item').forEach(function(b){
-    if(b.dataset.tab==='factura') b.style.display=USER_ROLE==='admin'?'':'none';
+    b.style.display=allowed.indexOf(b.dataset.tab)>=0?'':'none';
   });
 }
 function logout(){
